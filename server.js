@@ -4,6 +4,8 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());
+
+app.use(express.static('public')); // Теперь сервер будет отдавать файлы из папки public
 app.use(bodyParser.json());
 
 // Имитация базы данных
