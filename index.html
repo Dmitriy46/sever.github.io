@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Диспетчер грузоперевозок</title>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  
   <style>
     /* Основные стили для мобильных устройств */
     * {
@@ -49,6 +54,41 @@
       border-radius: 10px;
       background: rgba(255,255,255,0.9);
       color: #333;
+    }
+
+    /* Облачный статус */
+    .cloud-status {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 15px;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+
+    .cloud-status.online {
+      background: rgba(72, 187, 120, 0.3);
+      color: #2d7d32;
+    }
+
+    .cloud-status.syncing {
+      background: rgba(255, 193, 7, 0.3);
+      color: #f57f17;
+      animation: pulse 1.5s infinite;
+    }
+
+    .cloud-status.offline {
+      background: rgba(244, 67, 54, 0.3);
+      color: #c62828;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
     }
     
     /* Главные кнопки действий */
@@ -445,6 +485,11 @@
       color: white;
     }
     
+    /* Скрытый input для файлов */
+    .hidden-input {
+      display: none;
+    }
+    
     /* Анимация shake */
     @keyframes shake {
       0%, 100% { transform: translateX(0); }
@@ -535,6 +580,11 @@
         <option value="">Загрузка...</option>
       </select>
     </div>
+    <!-- Индикатор облачной синхронизации -->
+    <div id="cloudStatus" class="cloud-status" style="display: none;">
+      <span id="cloudIcon">☁️</span>
+      <span id="cloudText">Локально</span>
+    </div>
   </div>
   
   <div class="main-actions">
@@ -558,6 +608,10 @@
       <span class="icon">⚙️</span>
       <span class="text">Настройки</span>
     </button>
+    <button onclick="showCloudSync()" class="big-button success" id="cloudBtn">
+      <span class="icon">☁️</span>
+      <span class="text">Облако</span>
+    </button>
   </div>
   
   <div class="tasks-container" id="tasksContainer">
@@ -575,12 +629,15 @@
   <div class="more-actions">
     <button onclick="duplicateSelected()" class="secondary-button">📑 Дублировать</button>
     <button onclick="deleteSelected()" class="secondary-button">🗑️ Удалить выбранные</button>
-    <button onclick="showManageDialog()" class="secondary-button">⚙️ Управление</button>
-    <button onclick="clearAllData()" class="secondary-button">🗑️ Очистить всё</button>
+    <button onclick="exportAllData()" class="secondary-button">💾 Экспорт данных</button>
+    <button onclick="importAllData()" class="secondary-button">📥 Импорт данных</button>
   </div>
 
   <!-- Статус -->
   <div id="status" class="status"></div>
+
+  <!-- Скрытый input для импорта файлов -->
+  <input type="file" id="dataImportInput" class="hidden-input" accept=".json" onchange="handleDataImport(event)">
   
   <!-- Модальные окна -->
   <div id="createModal" class="modal">
@@ -627,7 +684,50 @@
     </div>
   </div>
 
-  <!-- Модальное окно настроек Telegram -->
+  <!-- Модальное окно синхронизации файлами -->
+  <div id="syncModal" class="modal">
+    <div class="modal-content">
+      <h3>📁 Синхронизация файлами</h3>
+      <div style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border-radius: 8px; font-size: 14px; color: #856404;">
+        📱 <strong>Ручная синхронизация:</strong> Экспорт/импорт файлов для переноса данных между устройствами
+      </div>
+      
+      <div style="display: grid; gap: 10px;">
+        <button class="modal-button confirm" onclick="exportAllData(); closeModal('syncModal');" style="width: 100%;">
+          💾 <strong>Экспорт данных</strong><br>
+          <small>Сохранить файл для переноса на другое устройство</small>
+        </button>
+        
+        <button class="modal-button" onclick="importAllData(); closeModal('syncModal');" style="width: 100%; background: #48bb78; color: white;">
+          📥 <strong>Импорт данных</strong><br>
+          <small>Загрузить данные с другого устройства</small>
+        </button>
+        
+        <button class="modal-button" onclick="shareViaText(); closeModal('syncModal');" style="width: 100%; background: #f39c12; color: white;">
+          📱 <strong>Отправить текстом</strong><br>
+          <small>Скопировать данные для отправки в мессенджер</small>
+        </button>
+        
+        <button class="modal-button" onclick="showManageDialog(); closeModal('syncModal');" style="width: 100%; background: #6c757d; color: white;">
+          ⚙️ <strong>Управление</strong><br>
+          <small>Переименовать, удалить листы, очистить всё</small>
+        </button>
+      </div>
+      
+      <div style="margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 12px; color: #666;">
+        💡 <strong>Как работает:</strong><br>
+        1. <strong>Экспорт</strong> - сохраняет файл с данными<br>
+        2. На другом устройстве откройте сайт<br>
+        3. <strong>Импорт</strong> - загрузите файл<br>
+        4. Данные появятся на новом устройстве
+      </div>
+      
+      <div class="modal-buttons" style="margin-top: 20px;">
+        <button class="modal-button cancel" onclick="closeModal('syncModal')">Закрыть</button>
+        <button class="modal-button primary" onclick="showCloudSync(); closeModal('syncModal');">☁️ Автоматическое облако</button>
+      </div>
+    </div>
+  </div>
   <div id="telegramSettingsModal" class="modal">
     <div class="modal-content">
       <h3>🤖 Настройки Telegram</h3>
@@ -669,6 +769,8 @@
     // Константы
     const STORAGE_KEY = 'cargoDispatcher';
     const TELEGRAM_SETTINGS_KEY = 'cargoDispatcherTelegram';
+    const FIREBASE_SETTINGS_KEY = 'cargoDispatcherFirebase';
+    const GITHUB_SETTINGS_KEY = 'cargoDispatcherGitHub';
     const VERSION = '1.0';
 
     // Настройки Telegram (будут загружены из localStorage)
@@ -676,6 +778,34 @@
       botToken: '',
       chatId: ''
     };
+
+    // Настройки Firebase (будут загружены из localStorage)
+    let firebaseSettings = {
+      apiKey: '',
+      databaseURL: '',
+      projectId: '',
+      userId: '', // Уникальный ID пользователя
+      enabled: false
+    };
+
+    // Настройки GitHub Gist
+    let githubSettings = {
+      token: '',
+      gistId: '',
+      fileName: 'cargo-dispatcher-data.json',
+      isPrivate: true,
+      enabled: false
+    };
+
+    // Firebase переменные
+    let firebaseApp = null;
+    let firebaseDB = null;
+    let isOnline = false;
+    let syncInProgress = false;
+
+    // GitHub переменные
+    let githubSyncInProgress = false;
+    let lastGitHubSync = 0;
 
     // Шаблоны для быстрого заполнения
     const templates = {
@@ -761,15 +891,696 @@
       }
     }
 
-    function saveTelegramSettingsToStorage() {
+    // Функции для настроек Firebase
+    function loadFirebaseSettings() {
       try {
-        localStorage.setItem(TELEGRAM_SETTINGS_KEY, JSON.stringify(telegramSettings));
-        logInfo('Настройки Telegram сохранены');
-        return true;
+        const saved = localStorage.getItem(FIREBASE_SETTINGS_KEY);
+        if (saved) {
+          firebaseSettings = JSON.parse(saved);
+          logInfo('Настройки Firebase загружены');
+          return true;
+        }
+        return false;
       } catch (error) {
-        logError('Ошибка сохранения настроек Telegram', error);
+        logError('Ошибка загрузки настроек Firebase', error);
         return false;
       }
+    }
+
+    // Функции для настроек GitHub
+    function loadGitHubSettings() {
+      try {
+        const saved = localStorage.getItem(GITHUB_SETTINGS_KEY);
+        if (saved) {
+          githubSettings = JSON.parse(saved);
+          logInfo('Настройки GitHub загружены');
+          return true;
+        }
+        return false;
+      } catch (error) {
+        logError('Ошибка загрузки настроек GitHub', error);
+        return false;
+      }
+    }
+
+    function saveGitHubSettingsToStorage() {
+      try {
+        localStorage.setItem(GITHUB_SETTINGS_KEY, JSON.stringify(githubSettings));
+        logInfo('Настройки GitHub сохранены');
+        return true;
+      } catch (error) {
+        logError('Ошибка сохранения настроек GitHub', error);
+        return false;
+      }
+    }
+
+    // GitHub Gist API функции
+    async function createGitHubGist(data) {
+      const response = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${githubSettings.token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'Cargo-Dispatcher-App'
+        },
+        body: JSON.stringify({
+          description: 'Диспетчер грузоперевозок - данные синхронизации',
+          public: !githubSettings.isPrivate,
+          files: {
+            [githubSettings.fileName]: {
+              content: JSON.stringify(data, null, 2)
+            }
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`GitHub API: ${response.status} - ${error}`);
+      }
+
+      return await response.json();
+    }
+
+    async function updateGitHubGist(gistId, data) {
+      const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `token ${githubSettings.token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'Cargo-Dispatcher-App'
+        },
+        body: JSON.stringify({
+          files: {
+            [githubSettings.fileName]: {
+              content: JSON.stringify(data, null, 2)
+            }
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`GitHub API: ${response.status} - ${error}`);
+      }
+
+      return await response.json();
+    }
+
+    async function getGitHubGist(gistId) {
+      const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+        headers: {
+          'Authorization': `token ${githubSettings.token}`,
+          'User-Agent': 'Cargo-Dispatcher-App'
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`GitHub API: ${response.status} - ${error}`);
+      }
+
+      return await response.json();
+    }
+
+    // Синхронизация с GitHub Gist
+    async function syncToGitHub() {
+      if (!githubSettings.enabled || !githubSettings.token || githubSyncInProgress) {
+        return;
+      }
+
+      try {
+        githubSyncInProgress = true;
+        updateCloudStatus();
+
+        // Сохраняем текущие данные
+        if (currentSheet) {
+          allSheets[currentSheet] = [...tasksData];
+        }
+
+        const dataToSync = {
+          version: VERSION,
+          exportDate: new Date().toISOString(),
+          lastModified: Date.now(),
+          device: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop',
+          browser: navigator.userAgent,
+          sheets: allSheets,
+          telegramSettings: telegramSettings.botToken ? telegramSettings : null,
+          currentSheet: currentSheet,
+          totalTasks: Object.values(allSheets).flat().length,
+          syncMethod: 'github-gist'
+        };
+
+        let result;
+        if (githubSettings.gistId) {
+          // Обновляем существующий gist
+          result = await updateGitHubGist(githubSettings.gistId, dataToSync);
+        } else {
+          // Создаем новый gist
+          result = await createGitHubGist(dataToSync);
+          githubSettings.gistId = result.id;
+          saveGitHubSettingsToStorage();
+        }
+
+        lastGitHubSync = Date.now();
+        localStorage.setItem(STORAGE_KEY + '_githubLastSync', lastGitHubSync.toString());
+
+        logInfo('Данные синхронизированы в GitHub Gist: ' + result.html_url);
+        showStatus('🐙 Синхронизировано с GitHub!', 'success');
+
+      } catch (error) {
+        logError('Ошибка синхронизации с GitHub', error);
+        
+        if (error.message.includes('401')) {
+          showStatus('Ошибка: Неверный GitHub токен', 'error');
+          githubSettings.enabled = false;
+          saveGitHubSettingsToStorage();
+        } else if (error.message.includes('404')) {
+          showStatus('Ошибка: Gist не найден, создается новый', 'error');
+          githubSettings.gistId = '';
+          saveGitHubSettingsToStorage();
+        } else {
+          showStatus('Ошибка синхронизации с GitHub: ' + error.message, 'error');
+        }
+      } finally {
+        githubSyncInProgress = false;
+        updateCloudStatus();
+      }
+    }
+
+    async function syncFromGitHub() {
+      if (!githubSettings.enabled || !githubSettings.token || !githubSettings.gistId) {
+        return;
+      }
+
+      try {
+        githubSyncInProgress = true;
+        updateCloudStatus();
+
+        const gist = await getGitHubGist(githubSettings.gistId);
+        const fileContent = gist.files[githubSettings.fileName];
+        
+        if (!fileContent) {
+          throw new Error('Файл данных не найден в Gist');
+        }
+
+        const cloudData = JSON.parse(fileContent.content);
+        
+        // Проверяем нужно ли синхронизироваться
+        const localLastSync = parseInt(localStorage.getItem(STORAGE_KEY + '_githubLastSync') || '0');
+        const cloudLastModified = cloudData.lastModified || 0;
+        
+        if (cloudLastModified > localLastSync) {
+          // Показываем информацию о синхронизации
+          const device = cloudData.device || 'другое устройство';
+          const lastModified = new Date(cloudData.lastModified).toLocaleString('ru-RU');
+          const totalTasks = cloudData.totalTasks || 0;
+          
+          const confirmText = `Обнаружены более новые данные из GitHub:\n\n📱 Устройство: ${device}\n⏰ Время: ${lastModified}\n📋 Заданий: ${totalTasks}\n\nСинхронизировать?`;
+          
+          if (confirm(confirmText)) {
+            // Импортируем данные из GitHub
+            allSheets = cloudData.sheets || {};
+            
+            if (cloudData.telegramSettings && cloudData.telegramSettings.botToken) {
+              telegramSettings = cloudData.telegramSettings;
+              saveTelegramSettingsToStorage();
+            }
+            
+            const sheets = Object.keys(allSheets);
+            if (sheets.length > 0) {
+              currentSheet = cloudData.currentSheet || sheets[0];
+              tasksData = [...(allSheets[currentSheet] || [])];
+            } else {
+              createInitialData();
+            }
+            
+            updateSheetSelector();
+            renderTasks();
+            saveToStorage();
+            
+            lastGitHubSync = cloudData.lastModified;
+            localStorage.setItem(STORAGE_KEY + '_githubLastSync', lastGitHubSync.toString());
+            
+            showStatus(`🐙 Синхронизировано с ${device}`, 'success');
+            logInfo('Данные синхронизированы из GitHub Gist');
+          }
+        }
+
+      } catch (error) {
+        logError('Ошибка синхронизации из GitHub', error);
+        showStatus('Ошибка получения данных из GitHub: ' + error.message, 'error');
+      } finally {
+        githubSyncInProgress = false;
+        updateCloudStatus();
+      }
+    }
+
+    // Проверка GitHub токена
+    async function testGitHubConnection() {
+      if (!githubSettings.token) {
+        showStatus('GitHub токен не настроен', 'error');
+        return false;
+      }
+
+      try {
+        showStatus('Проверка GitHub соединения...', '');
+        
+        const response = await fetch('https://api.github.com/user', {
+          headers: {
+            'Authorization': `token ${githubSettings.token}`,
+            'User-Agent': 'Cargo-Dispatcher-App'
+          }
+        });
+
+        if (response.ok) {
+          const user = await response.json();
+          showStatus(`✅ GitHub подключен! Пользователь: ${user.login}`, 'success');
+          return true;
+        } else {
+          showStatus('❌ Неверный GitHub токен', 'error');
+          return false;
+        }
+      } catch (error) {
+        logError('Ошибка проверки GitHub', error);
+        showStatus('Ошибка подключения к GitHub', 'error');
+        return false;
+      }
+    }
+
+    // Инициализация Firebase
+    function initFirebase() {
+      if (!firebaseSettings.enabled || !firebaseSettings.apiKey) return false;
+
+      try {
+        const config = {
+          apiKey: firebaseSettings.apiKey,
+          databaseURL: firebaseSettings.databaseURL,
+          projectId: firebaseSettings.projectId
+        };
+
+        firebaseApp = firebase.initializeApp(config);
+        firebaseDB = firebaseApp.database();
+        
+        // Проверяем соединение
+        const connectedRef = firebaseDB.ref('.info/connected');
+        connectedRef.on('value', (snapshot) => {
+          isOnline = snapshot.val() === true;
+          updateCloudStatus();
+          
+          if (isOnline && !syncInProgress) {
+            // Автоматическая синхронизация при подключении
+            syncToCloud();
+          }
+        });
+
+        // Слушаем изменения в облаке
+        const userRef = firebaseDB.ref(`users/${firebaseSettings.userId}`);
+        userRef.on('value', (snapshot) => {
+          const cloudData = snapshot.val();
+          if (cloudData && cloudData.lastModified && !syncInProgress) {
+            // Проверяем нужно ли синхронизироваться
+            const localLastModified = localStorage.getItem(STORAGE_KEY + '_lastModified') || '0';
+            if (cloudData.lastModified > localLastModified) {
+              syncFromCloud(cloudData);
+            }
+          }
+        });
+
+        logInfo('Firebase инициализирован');
+        return true;
+      } catch (error) {
+        logError('Ошибка инициализации Firebase', error);
+        firebaseSettings.enabled = false;
+        return false;
+      }
+    }
+
+    // Синхронизация В облако
+    async function syncToCloud() {
+      if (!firebaseDB || !firebaseSettings.enabled || syncInProgress) return;
+
+      try {
+        syncInProgress = true;
+        updateCloudStatus();
+
+        // Сохраняем текущие данные
+        if (currentSheet) {
+          allSheets[currentSheet] = [...tasksData];
+        }
+
+        const dataToSync = {
+          version: VERSION,
+          sheets: allSheets,
+          telegramSettings: telegramSettings.botToken ? telegramSettings : null,
+          currentSheet: currentSheet,
+          lastModified: Date.now(),
+          device: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop'
+        };
+
+        await firebaseDB.ref(`users/${firebaseSettings.userId}`).set(dataToSync);
+        
+        // Сохраняем время последней модификации локально
+        localStorage.setItem(STORAGE_KEY + '_lastModified', dataToSync.lastModified.toString());
+        
+        logInfo('Данные синхронизированы в облако');
+        showStatus('☁️ Синхронизировано в облако', 'success');
+        
+      } catch (error) {
+        logError('Ошибка синхронизации в облако', error);
+        showStatus('Ошибка синхронизации в облако', 'error');
+      } finally {
+        syncInProgress = false;
+        updateCloudStatus();
+      }
+    }
+
+    // Синхронизация ИЗ облака
+    function syncFromCloud(cloudData) {
+      if (syncInProgress) return;
+
+      try {
+        syncInProgress = true;
+        updateCloudStatus();
+
+        // Показываем информацию о синхронизации
+        const device = cloudData.device || 'другое устройство';
+        const lastModified = new Date(cloudData.lastModified).toLocaleString('ru-RU');
+        
+        if (confirm(`Обнаружены более новые данные из облака:\n\n📱 Устройство: ${device}\n⏰ Время: ${lastModified}\n\nСинхронизировать?`)) {
+          // Импортируем данные из облака
+          allSheets = cloudData.sheets || {};
+          
+          if (cloudData.telegramSettings && cloudData.telegramSettings.botToken) {
+            telegramSettings = cloudData.telegramSettings;
+            saveTelegramSettingsToStorage();
+          }
+          
+          const sheets = Object.keys(allSheets);
+          if (sheets.length > 0) {
+            currentSheet = cloudData.currentSheet || sheets[0];
+            tasksData = [...(allSheets[currentSheet] || [])];
+          } else {
+            createInitialData();
+          }
+          
+          updateSheetSelector();
+          renderTasks();
+          saveToStorage();
+          
+          // Сохраняем время последней модификации
+          localStorage.setItem(STORAGE_KEY + '_lastModified', cloudData.lastModified.toString());
+          
+          showStatus(`☁️ Синхронизировано с ${device}`, 'success');
+          logInfo('Данные синхронизированы из облака');
+        }
+        
+      } catch (error) {
+        logError('Ошибка синхронизации из облака', error);
+        showStatus('Ошибка синхронизации из облака', 'error');
+      } finally {
+        syncInProgress = false;
+        updateCloudStatus();
+      }
+    }
+
+    // Обновление статуса облака
+    function updateCloudStatus() {
+      const statusEl = document.getElementById('cloudStatus');
+      const iconEl = document.getElementById('cloudIcon');
+      const textEl = document.getElementById('cloudText');
+      const btnEl = document.getElementById('cloudBtn');
+      
+      const isCloudEnabled = firebaseSettings.enabled || githubSettings.enabled;
+      
+      if (!isCloudEnabled) {
+        statusEl.style.display = 'none';
+        btnEl.style.background = '#6c757d';
+        return;
+      }
+      
+      statusEl.style.display = 'flex';
+      statusEl.className = 'cloud-status';
+      
+      if (syncInProgress || githubSyncInProgress) {
+        statusEl.classList.add('syncing');
+        iconEl.textContent = '🔄';
+        textEl.textContent = 'Синхронизация...';
+        btnEl.style.background = '#f39c12';
+      } else if (firebaseSettings.enabled && isOnline) {
+        statusEl.classList.add('online');
+        iconEl.textContent = '🔥';
+        textEl.textContent = 'Firebase';
+        btnEl.style.background = '#48bb78';
+      } else if (githubSettings.enabled) {
+        statusEl.classList.add('online');
+        iconEl.textContent = '🐙';
+        textEl.textContent = 'GitHub';
+        btnEl.style.background = '#24292e';
+      } else {
+        statusEl.classList.add('offline');
+        iconEl.textContent = '📡';
+        textEl.textContent = 'Оффлайн';
+        btnEl.style.background = '#f56565';
+      }
+    }
+
+    // UI функции для облака
+    function showCloudSync() {
+      const notConfigured = document.getElementById('cloudNotConfigured');
+      const configured = document.getElementById('cloudConfigured');
+      
+      const isCloudEnabled = firebaseSettings.enabled || githubSettings.enabled;
+      
+      if (isCloudEnabled) {
+        notConfigured.style.display = 'none';
+        configured.style.display = 'block';
+        
+        // Обновляем информацию
+        if (firebaseSettings.enabled) {
+          document.getElementById('cloudType').textContent = 'Firebase';
+          document.getElementById('cloudUser').textContent = firebaseSettings.userId;
+          document.getElementById('cloudConnectionStatus').textContent = isOnline ? 'Онлайн' : 'Оффлайн';
+          document.getElementById('cloudStatusIcon').textContent = isOnline ? '🔥' : '📡';
+          document.getElementById('cloudStatusText').textContent = isOnline ? 'Firebase подключен' : 'Firebase оффлайн';
+          document.getElementById('cloudGistInfo').style.display = 'none';
+        } else if (githubSettings.enabled) {
+          document.getElementById('cloudType').textContent = 'GitHub Gist';
+          document.getElementById('cloudUser').textContent = 'GitHub пользователь';
+          document.getElementById('cloudConnectionStatus').textContent = 'Готов';
+          document.getElementById('cloudStatusIcon').textContent = '🐙';
+          document.getElementById('cloudStatusText').textContent = 'GitHub подключен';
+          
+          // Показываем информацию о Gist
+          const gistInfo = document.getElementById('cloudGistInfo');
+          if (githubSettings.gistId) {
+            gistInfo.style.display = 'block';
+            document.getElementById('cloudGistId').textContent = githubSettings.gistId;
+            document.getElementById('cloudGistLink').href = `https://gist.github.com/${githubSettings.gistId}`;
+          } else {
+            gistInfo.style.display = 'none';
+          }
+        }
+      } else {
+        notConfigured.style.display = 'block';
+        configured.style.display = 'none';
+      }
+      
+      showModal('cloudSyncModal');
+    }
+
+    function showGitHubSetup() {
+      closeModal('cloudSyncModal');
+      
+      // Заполняем текущие значения
+      document.getElementById('githubToken').value = githubSettings.token || '';
+      document.getElementById('githubGistId').value = githubSettings.gistId || '';
+      document.getElementById('githubPrivate').checked = githubSettings.isPrivate;
+      
+      showModal('githubSetupModal');
+    }
+
+    async function saveGitHubSettings() {
+      const token = document.getElementById('githubToken').value.trim();
+      const gistId = document.getElementById('githubGistId').value.trim();
+      const isPrivate = document.getElementById('githubPrivate').checked;
+      
+      if (!token) {
+        showStatus('Введите GitHub токен', 'error');
+        return;
+      }
+      
+      // Простая валидация токена
+      if (!token.startsWith('github_pat_') && !token.startsWith('ghp_')) {
+        showStatus('Проверьте формат GitHub токена', 'error');
+        return;
+      }
+      
+      githubSettings = {
+        token,
+        gistId,
+        fileName: 'cargo-dispatcher-data.json',
+        isPrivate,
+        enabled: true
+      };
+      
+      if (saveGitHubSettingsToStorage()) {
+        closeModal('githubSetupModal');
+        
+        // Проверяем подключение
+        const connected = await testGitHubConnection();
+        if (connected) {
+          showStatus('🐙 GitHub подключен! Данные будут синхронизироваться автоматически', 'success');
+          updateCloudStatus();
+          
+          // Первая синхронизация
+          setTimeout(() => {
+            if (gistId) {
+              syncFromGitHub(); // Загружаем данные из существующего Gist
+            } else {
+              syncToGitHub(); // Создаем новый Gist
+            }
+          }, 1000);
+        } else {
+          githubSettings.enabled = false;
+          saveGitHubSettingsToStorage();
+        }
+      }
+    }
+
+    function showFirebaseSetup() {
+      closeModal('cloudSyncModal');
+      
+      // Заполняем текущие значения
+      document.getElementById('firebaseApiKey').value = firebaseSettings.apiKey || '';
+      document.getElementById('firebaseDatabaseURL').value = firebaseSettings.databaseURL || '';
+      document.getElementById('firebaseProjectId').value = firebaseSettings.projectId || '';
+      document.getElementById('firebaseUserId').value = firebaseSettings.userId || 'user_' + Date.now();
+      
+      showModal('firebaseSetupModal');
+    }
+
+    function saveFirebaseSettings() {
+      const apiKey = document.getElementById('firebaseApiKey').value.trim();
+      const databaseURL = document.getElementById('firebaseDatabaseURL').value.trim();
+      const projectId = document.getElementById('firebaseProjectId').value.trim();
+      const userId = document.getElementById('firebaseUserId').value.trim();
+      
+      if (!apiKey || !databaseURL || !projectId || !userId) {
+        showStatus('Заполните все поля', 'error');
+        return;
+      }
+      
+      // Простая валидация
+      if (!apiKey.startsWith('AIza') || !databaseURL.includes('firebaseio.com')) {
+        showStatus('Проверьте правильность данных Firebase', 'error');
+        return;
+      }
+      
+      firebaseSettings = {
+        apiKey,
+        databaseURL,
+        projectId,
+        userId,
+        enabled: true
+      };
+      
+      if (saveFirebaseSettingsToStorage()) {
+        closeModal('firebaseSetupModal');
+        
+        // Инициализируем Firebase
+        if (initFirebase()) {
+          showStatus('🔥 Firebase подключен! Данные будут синхронизироваться автоматически', 'success');
+          updateCloudStatus();
+          
+          // Первая синхронизация
+          setTimeout(() => {
+            syncToCloud();
+          }, 1000);
+        } else {
+          showStatus('Ошибка подключения к Firebase', 'error');
+        }
+      }
+    }
+
+    function disconnectCloud() {
+      const cloudType = firebaseSettings.enabled ? 'Firebase' : githubSettings.enabled ? 'GitHub' : 'облачную';
+      
+      if (!confirm(`Отключить ${cloudType} синхронизацию? Данные останутся только на этом устройстве.`)) {
+        return;
+      }
+      
+      if (firebaseSettings.enabled) {
+        firebaseSettings.enabled = false;
+        saveFirebaseSettingsToStorage();
+        
+        // Отключаем Firebase
+        if (firebaseApp) {
+          try {
+            firebaseApp.delete();
+          } catch (error) {
+            logError('Ошибка отключения Firebase', error);
+          }
+        }
+        
+        firebaseApp = null;
+        firebaseDB = null;
+        isOnline = false;
+      }
+      
+      if (githubSettings.enabled) {
+        githubSettings.enabled = false;
+        saveGitHubSettingsToStorage();
+      }
+      
+      updateCloudStatus();
+      closeModal('cloudSyncModal');
+      showStatus('☁️ Облачная синхронизация отключена', 'success');
+    }
+
+    function manualCloudSync() {
+      if (firebaseSettings.enabled) {
+        syncToCloud();
+      } else if (githubSettings.enabled) {
+        syncToGitHub();
+      } else {
+        showStatus('Облако не настроено', 'error');
+      }
+    }
+
+    function testCloudConnection() {
+      if (firebaseSettings.enabled && firebaseDB) {
+        showStatus('Проверка Firebase...', '');
+        
+        firebaseDB.ref('.info/connected').once('value')
+          .then((snapshot) => {
+            const connected = snapshot.val();
+            if (connected) {
+              showStatus('✅ Firebase работает', 'success');
+            } else {
+              showStatus('❌ Нет соединения с Firebase', 'error');
+            }
+          })
+          .catch((error) => {
+            logError('Ошибка проверки Firebase', error);
+            showStatus('Ошибка проверки Firebase', 'error');
+          });
+      } else if (githubSettings.enabled) {
+        testGitHubConnection();
+      } else {
+        showStatus('Облако не настроено', 'error');
+      }
+    }
+
+    // Заглушка для Telegram Storage
+    function showTelegramCloudSetup() {
+      showStatus('🚧 Telegram Storage скоро будет доступен!', 'error');
+      closeModal('cloudSyncModal');
+    }
+
+    // Показать меню файловой синхронизации (старый способ)
+    function showSyncMenu() {
+      showModal('syncModal');
     }
 
     function createInitialData() {
@@ -814,16 +1625,43 @@
 
       // Загружаем настройки Telegram
       loadTelegramSettings();
+      
+      // Загружаем настройки Firebase и инициализируем
+      loadFirebaseSettings();
+      if (firebaseSettings.enabled) {
+        initFirebase();
+      }
+
+      // Загружаем настройки GitHub
+      loadGitHubSettings();
+      if (githubSettings.enabled) {
+        // Проверяем GitHub при старте
+        setTimeout(() => {
+          syncFromGitHub();
+        }, 2000);
+      }
 
       updateSheetSelector();
       renderTasks();
       setupEventListeners();
+      updateCloudStatus();
       
-      // Автосохранение каждые 30 секунд
+      // Автосохранение каждые 30 секунд + синхронизация в облако
       setInterval(() => {
         if (currentSheet && allSheets[currentSheet]) {
           allSheets[currentSheet] = [...tasksData];
           saveToStorage();
+          
+          // Автоматическая синхронизация в облако если включена
+          if (firebaseSettings.enabled && isOnline && !syncInProgress) {
+            syncToCloud();
+          } else if (githubSettings.enabled && !githubSyncInProgress) {
+            // GitHub синхронизация реже (каждые 2 минуты)
+            const timeSinceLastSync = Date.now() - lastGitHubSync;
+            if (timeSinceLastSync > 120000) { // 2 минуты
+              syncToGitHub();
+            }
+          }
         }
       }, 30000);
 
@@ -1346,6 +2184,17 @@
       
       if (saveToStorage()) {
         showStatus('✅ Данные сохранены!', 'success');
+        
+        // Синхронизация в облако если включена
+        if (firebaseSettings.enabled && isOnline && !syncInProgress) {
+          setTimeout(() => {
+            syncToCloud();
+          }, 500);
+        } else if (githubSettings.enabled && !githubSyncInProgress) {
+          setTimeout(() => {
+            syncToGitHub();
+          }, 500);
+        }
       }
     }
 
@@ -1487,36 +2336,253 @@
       return message.trim();
     }
 
+    // Показать меню синхронизации
+    function showSyncMenu() {
+      showModal('syncModal');
+    }
+
+    // Экспорт всех данных
+    function exportAllData() {
+      try {
+        // Сохраняем текущие данные перед экспортом
+        if (currentSheet) {
+          allSheets[currentSheet] = [...tasksData];
+          saveToStorage();
+        }
+
+        const data = {
+          version: VERSION,
+          exportDate: new Date().toISOString(),
+          device: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop',
+          sheets: allSheets,
+          telegramSettings: telegramSettings,
+          currentSheet: currentSheet,
+          totalTasks: Object.values(allSheets).flat().length
+        };
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        const deviceName = navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop';
+        const dateStr = new Date().toISOString().split('T')[0];
+        a.download = `cargo-dispatcher-${deviceName}-${dateStr}.json`;
+        
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showStatus('✅ Данные экспортированы! Файл сохранен в Загрузки', 'success');
+        
+        // Показываем инструкцию
+        setTimeout(() => {
+          showStatus('💡 Отправьте файл на другое устройство и импортируйте там', 'success');
+        }, 3000);
+        
+      } catch (error) {
+        logError('Ошибка экспорта', error);
+        showStatus('Ошибка экспорта данных', 'error');
+      }
+    }
+
+    // Импорт всех данных
+    function importAllData() {
+      document.getElementById('dataImportInput').click();
+    }
+
+    // Обработка импорта файла
+    function handleDataImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          
+          if (!data.sheets) {
+            throw new Error('Неверный формат файла');
+          }
+          
+          // Показываем информацию о файле
+          const totalTasks = Object.values(data.sheets).flat().length;
+          const exportDate = new Date(data.exportDate).toLocaleDateString('ru-RU');
+          const device = data.device || 'неизвестно';
+          
+          const confirmText = `Импортировать данные?\n\n📊 Листов: ${Object.keys(data.sheets).length}\n📋 Заданий: ${totalTasks}\n📅 Экспорт: ${exportDate}\n📱 Устройство: ${device}\n\n⚠️ Текущие данные будут заменены!`;
+          
+          if (confirm(confirmText)) {
+            // Импортируем данные
+            allSheets = data.sheets || {};
+            
+            // Импортируем настройки Telegram если есть
+            if (data.telegramSettings && data.telegramSettings.botToken) {
+              telegramSettings = data.telegramSettings;
+              saveTelegramSettingsToStorage();
+            }
+            
+            // Выбираем лист для отображения
+            const sheets = Object.keys(allSheets);
+            if (sheets.length > 0) {
+              currentSheet = data.currentSheet || sheets[0];
+              tasksData = [...(allSheets[currentSheet] || [])];
+            } else {
+              createInitialData();
+            }
+            
+            updateSheetSelector();
+            renderTasks();
+            saveToStorage();
+            
+            showStatus(`✅ Импортировано: ${Object.keys(allSheets).length} листов, ${totalTasks} заданий`, 'success');
+            
+            // Показываем что было импортировано
+            setTimeout(() => {
+              const telegramImported = data.telegramSettings ? ' + настройки Telegram' : '';
+              showStatus(`📱 Данные с ${device} успешно синхронизированы${telegramImported}`, 'success');
+            }, 3000);
+          }
+        } catch (error) {
+          logError('Ошибка импорта', error);
+          showStatus('Ошибка импорта: неверный формат файла', 'error');
+        }
+        
+        // Очищаем input
+        event.target.value = '';
+      };
+      
+      reader.readAsText(file);
+    }
+
+    // Поделиться данными текстом
+    function shareViaText() {
+      try {
+        // Сохраняем текущие данные
+        if (currentSheet) {
+          allSheets[currentSheet] = [...tasksData];
+        }
+
+        const data = {
+          version: VERSION,
+          exportDate: new Date().toISOString(),
+          sheets: allSheets,
+          telegramSettings: telegramSettings.botToken ? telegramSettings : null,
+          currentSheet: currentSheet
+        };
+        
+        const compressedData = JSON.stringify(data);
+        const totalTasks = Object.values(allSheets).flat().length;
+        
+        // Формируем текст для отправки
+        const shareText = `📋 Диспетчер грузоперевозок - Данные для синхронизации
+
+📊 Листов: ${Object.keys(allSheets).length}
+📋 Заданий: ${totalTasks}
+📅 Экспорт: ${new Date().toLocaleDateString('ru-RU')}
+
+🔗 Ссылка на приложение: ${window.location.href}
+
+📦 Данные (скопируйте и сохраните в файл .json):
+${compressedData}`;
+
+        // Копируем в буфер обмена
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(shareText)
+            .then(() => {
+              showStatus('✅ Данные скопированы! Отправьте их в мессенджере', 'success');
+              setTimeout(() => {
+                showStatus('💡 На другом устройстве создайте файл .json и импортируйте', 'success');
+              }, 3000);
+            })
+            .catch(() => fallbackCopyShare(shareText));
+        } else {
+          fallbackCopyShare(shareText);
+        }
+        
+      } catch (error) {
+        logError('Ошибка создания данных для отправки', error);
+        showStatus('Ошибка подготовки данных', 'error');
+      }
+    }
+
+    function fallbackCopyShare(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      
+      try {
+        document.execCommand('copy');
+        showStatus('✅ Данные скопированы! Отправьте их в мессенджере', 'success');
+      } catch (error) {
+        showStatus('Ошибка копирования. Используйте экспорт файла', 'error');
+      }
+      
+      document.body.removeChild(textarea);
+    }
+
     // Очистить все данные
     function clearAllData() {
       if (!confirm('Удалить ВСЕ данные? Это действие нельзя отменить!')) {
         return;
       }
       
-      if (!confirm('Вы уверены? Все листы, задания и настройки Telegram будут удалены!')) {
+      if (!confirm('Вы уверены? Все листы, задания и настройки (Telegram + Firebase + GitHub) будут удалены!')) {
         return;
       }
       
       try {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(TELEGRAM_SETTINGS_KEY);
+        localStorage.removeItem(FIREBASE_SETTINGS_KEY);
+        localStorage.removeItem(GITHUB_SETTINGS_KEY);
+        localStorage.removeItem(STORAGE_KEY + '_lastModified');
+        localStorage.removeItem(STORAGE_KEY + '_githubLastSync');
         
         allSheets = {};
         tasksData = [];
         currentSheet = '';
         telegramSettings = { botToken: '', chatId: '' };
+        firebaseSettings = { apiKey: '', databaseURL: '', projectId: '', userId: '', enabled: false };
+        githubSettings = { token: '', gistId: '', fileName: 'cargo-dispatcher-data.json', isPrivate: true, enabled: false };
+        
+        // Отключаем Firebase
+        if (firebaseApp) {
+          try {
+            firebaseApp.delete();
+          } catch (error) {
+            logError('Ошибка отключения Firebase при очистке', error);
+          }
+        }
+        
+        firebaseApp = null;
+        firebaseDB = null;
+        isOnline = false;
+        githubSyncInProgress = false;
+        lastGitHubSync = 0;
         
         // Создаем новый лист
         createInitialData();
         updateSheetSelector();
         renderTasks();
         saveToStorage();
+        updateCloudStatus();
         
         showStatus('✅ Все данные удалены', 'success');
       } catch (error) {
         logError('Ошибка очистки данных', error);
         showStatus('Ошибка очистки данных', 'error');
       }
+    }
+
+    // Заглушка для Telegram Storage
+    function showTelegramCloudSetup() {
+      showStatus('🚧 Telegram Storage скоро будет доступен!', 'error');
+      closeModal('cloudSyncModal');
     }
 
     // Копирование в буфер обмена
@@ -1724,6 +2790,23 @@
       clearAll: () => clearAllData(),
       testTelegram: () => sendToTelegram(),
       telegramConfigured: () => !!(telegramSettings.botToken && telegramSettings.chatId),
+      testExport: () => exportAllData(),
+      testImport: () => importAllData(),
+      testSync: () => showSyncMenu(),
+      testCloud: () => showCloudSync(),
+      testFirebaseSync: () => syncToCloud(),
+      testGitHubSync: () => syncToGitHub(),
+      testGitHubConnection: () => testGitHubConnection(),
+      cloudStatus: () => ({
+        firebase: { enabled: firebaseSettings.enabled, online: isOnline, syncing: syncInProgress },
+        github: { enabled: githubSettings.enabled, syncing: githubSyncInProgress, gistId: githubSettings.gistId },
+        userId: firebaseSettings.userId || 'none'
+      }),
+      getDataSize: () => {
+        const totalTasks = Object.values(allSheets).flat().length;
+        const dataSize = JSON.stringify(allSheets).length;
+        return { sheets: Object.keys(allSheets).length, tasks: totalTasks, sizeKB: Math.round(dataSize / 1024) };
+      },
       testNavigation: () => {
         const firstField = document.querySelector('[contenteditable]');
         if (firstField) {
@@ -1736,7 +2819,10 @@
         console.log('Current sheet:', currentSheet);
         console.log('Current tasks:', tasksData);
         console.log('Telegram configured:', !!(telegramSettings.botToken && telegramSettings.chatId));
+        console.log('Cloud status:', window.debugApp.cloudStatus());
+        console.log('Data size:', window.debugApp.getDataSize());
         console.log('Navigation: Enter/Tab для перехода, Shift+Tab для обратного перехода');
+        console.log('Sync: Firebase для реального времени, GitHub Gist для версионности');
       }
     };
   </script>
