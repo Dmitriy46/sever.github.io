@@ -1,0 +1,28 @@
+// Заменить эту функцию:
+function saveToMemory() {
+  // Заменить на:
+  localStorage.setItem('cargoDispatcher', JSON.stringify(allSheets));
+  console.log('Данные сохранены в браузер');
+}
+
+// И эту функцию:
+function loadFromMemory() {
+  // Заменить на:
+  const saved = localStorage.getItem('cargoDispatcher');
+  if (saved) {
+    allSheets = JSON.parse(saved);
+    updateSheetSelector();
+    
+    // Выбираем последний лист
+    const sheets = Object.keys(allSheets);
+    if (sheets.length > 0) {
+      currentSheet = sheets[0];
+      tasksData = [...allSheets[currentSheet]];
+    }
+  } else {
+    // Создаем первый лист если нет данных
+    const today = new Date().toLocaleDateString('ru-RU');
+    allSheets[today] = [];
+    currentSheet = today;
+  }
+}
