@@ -4,11 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Диспетчер грузоперевозок</title>
-  
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-  
   <style>
     /* Основные стили для мобильных устройств */
     * {
@@ -1172,6 +1167,12 @@
     function initFirebase() {
       if (!firebaseSettings.enabled || !firebaseSettings.apiKey) return false;
 
+      // Проверяем что Firebase SDK загружен
+      if (typeof firebase === 'undefined') {
+        logError('Firebase SDK не загружен', 'Firebase не доступен');
+        return false;
+      }
+
       try {
         const config = {
           apiKey: firebaseSettings.apiKey,
@@ -1218,7 +1219,7 @@
 
     // Синхронизация В облако
     async function syncToCloud() {
-      if (!firebaseDB || !firebaseSettings.enabled || syncInProgress) return;
+      if (!firebaseDB || !firebaseSettings.enabled || syncInProgress || typeof firebase === 'undefined') return;
 
       try {
         syncInProgress = true;
@@ -1327,11 +1328,16 @@
         iconEl.textContent = '🔄';
         textEl.textContent = 'Синхронизация...';
         btnEl.style.background = '#f39c12';
-      } else if (firebaseSettings.enabled && isOnline) {
+      } else if (firebaseSettings.enabled && isOnline && typeof firebase !== 'undefined') {
         statusEl.classList.add('online');
         iconEl.textContent = '🔥';
         textEl.textContent = 'Firebase';
         btnEl.style.background = '#48bb78';
+      } else if (firebaseSettings.enabled && typeof firebase === 'undefined') {
+        statusEl.classList.add('offline');
+        iconEl.textContent = '🔥';
+        textEl.textContent = 'Firebase (загрузка)';
+        btnEl.style.background = '#f39c12';
       } else if (githubSettings.enabled) {
         statusEl.classList.add('online');
         iconEl.textContent = '🐙';
@@ -1451,6 +1457,35 @@
     function showFirebaseSetup() {
       closeModal('cloudSyncModal');
       
+      // Проверяем и загружаем Firebase SDK если нужно
+      if (typeof firebase === 'undefined') {
+        showStatus('Загрузка Firebase SDK...', '');
+        
+        // Загружаем Firebase SDK динамически
+        const script1 = document.createElement('script');
+        script1.src = 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js';
+        script1.onload = function() {
+          const script2 = document.createElement('script');
+          script2.src = 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js';
+          script2.onload = function() {
+            showStatus('Firebase SDK загружен', 'success');
+            openFirebaseSetupModal();
+          };
+          script2.onerror = function() {
+            showStatus('Ошибка загрузки Firebase SDK', 'error');
+          };
+          document.head.appendChild(script2);
+        };
+        script1.onerror = function() {
+          showStatus('Ошибка загрузки Firebase SDK', 'error');
+        };
+        document.head.appendChild(script1);
+      } else {
+        openFirebaseSetupModal();
+      }
+    }
+
+    function openFirebaseSetupModal() {
       // Заполняем текущие значения
       document.getElementById('firebaseApiKey').value = firebaseSettings.apiKey || '';
       document.getElementById('firebaseDatabaseURL').value = firebaseSettings.databaseURL || '';
@@ -1515,7 +1550,7 @@
         saveFirebaseSettingsToStorage();
         
         // Отключаем Firebase
-        if (firebaseApp) {
+        if (firebaseApp && typeof firebase !== 'undefined') {
           try {
             firebaseApp.delete();
           } catch (error) {
@@ -1549,7 +1584,7 @@
     }
 
     function testCloudConnection() {
-      if (firebaseSettings.enabled && firebaseDB) {
+      if (firebaseSettings.enabled && firebaseDB && typeof firebase !== 'undefined') {
         showStatus('Проверка Firebase...', '');
         
         firebaseDB.ref('.info/connected').once('value')
@@ -1653,7 +1688,7 @@
           saveToStorage();
           
           // Автоматическая синхронизация в облако если включена
-          if (firebaseSettings.enabled && isOnline && !syncInProgress) {
+          if (firebaseSettings.enabled && isOnline && !syncInProgress && typeof firebase !== 'undefined') {
             syncToCloud();
           } else if (githubSettings.enabled && !githubSyncInProgress) {
             // GitHub синхронизация реже (каждые 2 минуты)
@@ -2186,7 +2221,7 @@
         showStatus('✅ Данные сохранены!', 'success');
         
         // Синхронизация в облако если включена
-        if (firebaseSettings.enabled && isOnline && !syncInProgress) {
+        if (firebaseSettings.enabled && isOnline && !syncInProgress && typeof firebase !== 'undefined') {
           setTimeout(() => {
             syncToCloud();
           }, 500);
@@ -2551,7 +2586,7 @@ ${compressedData}`;
         githubSettings = { token: '', gistId: '', fileName: 'cargo-dispatcher-data.json', isPrivate: true, enabled: false };
         
         // Отключаем Firebase
-        if (firebaseApp) {
+        if (firebaseApp && typeof firebase !== 'undefined') {
           try {
             firebaseApp.delete();
           } catch (error) {
