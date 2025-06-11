@@ -388,10 +388,19 @@
       border-radius: 10px;
       margin-bottom: 15px;
       outline: none;
+      box-sizing: border-box;
     }
     
     .modal input:focus {
       border-color: #667eea;
+    }
+
+    .modal code {
+      background: #f1f3f4;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
     }
     
     .modal-buttons {
@@ -430,11 +439,6 @@
       color: white;
     }
     
-    /* Скрытый input для файлов */
-    .hidden-input {
-      display: none;
-    }
-
     /* Анимация shake */
     @keyframes shake {
       0%, 100% { transform: translateX(0); }
@@ -498,13 +502,17 @@
       <span class="icon">💾</span>
       <span class="text">Сохранить</span>
     </button>
+    <button onclick="sendToTelegram()" class="big-button primary">
+      <span class="icon">📤</span>
+      <span class="text">Telegram</span>
+    </button>
     <button onclick="copyToClipboard()" class="big-button">
       <span class="icon">📋</span>
       <span class="text">Копировать</span>
     </button>
-    <button onclick="exportData()" class="big-button primary">
-      <span class="icon">📤</span>
-      <span class="text">Экспорт</span>
+    <button onclick="showTelegramSettings()" class="big-button">
+      <span class="icon">⚙️</span>
+      <span class="text">Настройки</span>
     </button>
   </div>
   
@@ -518,15 +526,12 @@
   <div class="more-actions">
     <button onclick="duplicateSelected()" class="secondary-button">📑 Дублировать</button>
     <button onclick="deleteSelected()" class="secondary-button">🗑️ Удалить выбранные</button>
-    <button onclick="importData()" class="secondary-button">📥 Импорт</button>
     <button onclick="showManageDialog()" class="secondary-button">⚙️ Управление</button>
+    <button onclick="clearAllData()" class="secondary-button">🗑️ Очистить всё</button>
   </div>
 
   <!-- Статус -->
   <div id="status" class="status"></div>
-
-  <!-- Скрытый input для импорта файлов -->
-  <input type="file" id="fileInput" class="hidden-input" accept=".json" onchange="handleFileImport(event)">
   
   <!-- Модальные окна -->
   <div id="createModal" class="modal">
@@ -573,6 +578,38 @@
     </div>
   </div>
 
+  <!-- Модальное окно настроек Telegram -->
+  <div id="telegramSettingsModal" class="modal">
+    <div class="modal-content">
+      <h3>🤖 Настройки Telegram</h3>
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Токен бота:</label>
+        <input type="text" id="botTokenInput" placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz" style="font-family: monospace; font-size: 14px;">
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Chat ID:</label>
+        <input type="text" id="chatIdInput" placeholder="-1234567890 или 1234567890" style="font-family: monospace; font-size: 14px;">
+      </div>
+      <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 14px; color: #666;">
+        <strong>📋 Как получить данные:</strong><br>
+        1. Напишите @BotFather в Telegram<br>
+        2. Отправьте <code>/newbot</code><br>
+        3. Следуйте инструкциям и получите <strong>токен</strong><br>
+        4. Добавьте бота в группу/напишите ему<br>
+        5. Отправьте любое сообщение<br>
+        6. Откройте: <code>api.telegram.org/bot{ТОКЕН}/getUpdates</code><br>
+        7. Скопируйте <strong>chat_id</strong> из ответа
+      </div>
+      <div style="margin-bottom: 15px; padding: 10px; background: #fff3cd; border-radius: 8px; font-size: 13px; color: #856404;">
+        🔒 <strong>Безопасность:</strong> Данные сохраняются только в вашем браузере и не передаются никому.
+      </div>
+      <div class="modal-buttons">
+        <button class="modal-button cancel" onclick="closeModal('telegramSettingsModal')">Отмена</button>
+        <button class="modal-button confirm" onclick="saveTelegramSettings()">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Глобальные переменные
     let currentSheet = '';
@@ -582,7 +619,14 @@
 
     // Константы
     const STORAGE_KEY = 'cargoDispatcher';
+    const TELEGRAM_SETTINGS_KEY = 'cargoDispatcherTelegram';
     const VERSION = '1.0';
+
+    // Настройки Telegram (будут загружены из localStorage)
+    let telegramSettings = {
+      botToken: '',
+      chatId: ''
+    };
 
     // Шаблоны для быстрого заполнения
     const templates = {
@@ -652,6 +696,33 @@
       }
     }
 
+    // Функции для настроек Telegram
+    function loadTelegramSettings() {
+      try {
+        const saved = localStorage.getItem(TELEGRAM_SETTINGS_KEY);
+        if (saved) {
+          telegramSettings = JSON.parse(saved);
+          logInfo('Настройки Telegram загружены');
+          return true;
+        }
+        return false;
+      } catch (error) {
+        logError('Ошибка загрузки настроек Telegram', error);
+        return false;
+      }
+    }
+
+    function saveTelegramSettingsToStorage() {
+      try {
+        localStorage.setItem(TELEGRAM_SETTINGS_KEY, JSON.stringify(telegramSettings));
+        logInfo('Настройки Telegram сохранены');
+        return true;
+      } catch (error) {
+        logError('Ошибка сохранения настроек Telegram', error);
+        return false;
+      }
+    }
+
     function createInitialData() {
       const today = new Date().toLocaleDateString('ru-RU');
       allSheets = {
@@ -691,6 +762,9 @@
           createInitialData();
         }
       }
+
+      // Загружаем настройки Telegram
+      loadTelegramSettings();
 
       updateSheetSelector();
       renderTasks();
@@ -1050,78 +1124,174 @@
       }
     }
 
-    // Экспорт данных
-    function exportData() {
+    // Отправка в Telegram
+    async function sendToTelegram() {
+      // Проверяем наличие настроек
+      if (!telegramSettings.botToken || !telegramSettings.chatId) {
+        showStatus('Настройте Telegram бота в настройках', 'error');
+        setTimeout(() => showTelegramSettings(), 1000);
+        return;
+      }
+
+      const message = formatForTelegram();
+      
+      if (!message.trim()) {
+        showStatus('Нет данных для отправки', 'error');
+        return;
+      }
+      
+      showStatus('Отправка в Telegram...');
+      
       try {
-        const data = {
-          version: VERSION,
-          sheets: allSheets,
-          exportDate: new Date().toISOString(),
-          currentSheet: currentSheet
-        };
+        const response = await fetch(`https://api.telegram.org/bot${telegramSettings.botToken}/sendMessage`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            chat_id: telegramSettings.chatId,
+            text: message,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
+          })
+        });
         
-        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `cargo-dispatcher-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        const result = await response.json();
         
-        showStatus('✅ Данные экспортированы!', 'success');
+        if (!result.ok) {
+          throw new Error(result.description || 'Ошибка отправки');
+        }
+        
+        showStatus('✅ Отправлено в Telegram!', 'success');
+        
       } catch (error) {
-        logError('Ошибка экспорта', error);
-        showStatus('Ошибка экспорта данных', 'error');
+        logError('Ошибка отправки в Telegram', error);
+        
+        if (error.message.includes('chat not found') || error.message.includes('Forbidden')) {
+          showStatus('Ошибка: Бот не добавлен в чат или заблокирован', 'error');
+        } else if (error.message.includes('token') || error.message.includes('Unauthorized')) {
+          showStatus('Ошибка: Неверный токен бота', 'error');
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          showStatus('Ошибка сети. Проверьте интернет', 'error');
+        } else {
+          showStatus('Ошибка отправки: ' + error.message, 'error');
+        }
       }
     }
 
-    // Импорт данных
-    function importData() {
-      document.getElementById('fileInput').click();
+    // Показать настройки Telegram
+    function showTelegramSettings() {
+      // Заполняем текущие значения
+      document.getElementById('botTokenInput').value = telegramSettings.botToken || '';
+      document.getElementById('chatIdInput').value = telegramSettings.chatId || '';
+      
+      showModal('telegramSettingsModal');
     }
 
-    // Обработка импорта файла
-    function handleFileImport(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+    // Сохранить настройки Telegram
+    function saveTelegramSettings() {
+      const botToken = document.getElementById('botTokenInput').value.trim();
+      const chatId = document.getElementById('chatIdInput').value.trim();
       
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const data = JSON.parse(e.target.result);
-          
-          if (!data.sheets) {
-            throw new Error('Неверный формат файла');
-          }
-          
-          if (confirm('Импортировать данные? Текущие данные будут заменены.')) {
-            allSheets = data.sheets;
-            
-            const sheets = Object.keys(allSheets);
-            if (sheets.length > 0) {
-              currentSheet = data.currentSheet || sheets[0];
-              tasksData = [...(allSheets[currentSheet] || [])];
-            } else {
-              createInitialData();
-            }
-            
-            updateSheetSelector();
-            renderTasks();
-            saveToStorage();
-            showStatus('✅ Данные импортированы!', 'success');
-          }
-        } catch (error) {
-          logError('Ошибка импорта', error);
-          showStatus('Ошибка импорта: неверный формат файла', 'error');
-        }
+      if (!botToken || !chatId) {
+        showStatus('Заполните все поля', 'error');
+        return;
+      }
+      
+      // Простая валидация токена
+      if (!botToken.includes(':') || botToken.length < 20) {
+        showStatus('Неверный формат токена бота', 'error');
+        return;
+      }
+      
+      // Простая валидация chat ID
+      if (!/^-?\d+$/.test(chatId)) {
+        showStatus('Chat ID должен быть числом', 'error');
+        return;
+      }
+      
+      telegramSettings.botToken = botToken;
+      telegramSettings.chatId = chatId;
+      
+      if (saveTelegramSettingsToStorage()) {
+        closeModal('telegramSettingsModal');
+        showStatus('✅ Настройки Telegram сохранены', 'success');
+      } else {
+        showStatus('Ошибка сохранения настроек', 'error');
+      }
+    }
+
+    // Форматирование для Telegram (с HTML разметкой)
+    function formatForTelegram() {
+      const activeTasks = tasksData.filter(task => task.machines);
+      
+      if (activeTasks.length === 0) {
+        return `📅 <b>${currentSheet}</b>\n\nНет заданий на эту дату.`;
+      }
+      
+      let message = `📅 <b>${currentSheet}</b>\n\n`;
+      
+      activeTasks.forEach((task, taskIndex) => {
+        message += `🚛 <b>${task.machines}</b>\n`;
         
-        // Очищаем input
-        event.target.value = '';
-      };
+        task.orders.forEach((order, orderIndex) => {
+          if (task.orders.length > 1) {
+            message += `  ${orderIndex + 1}. `;
+          } else {
+            message += `  `;
+          }
+          
+          message += `📦 ${order.cargo || '-'} | `;
+          message += `📍 ${order.from || '?'} → ${order.to || '?'} | `;
+          message += `👤 ${order.customer || '-'}`;
+          
+          if (order.note) {
+            message += `\n     📝 <i>${order.note}</i>`;
+          }
+          message += '\n';
+        });
+        
+        message += '\n';
+      });
       
-      reader.readAsText(file);
+      // Ограничение длины сообщения Telegram (4096 символов)
+      if (message.length > 4000) {
+        message = message.substring(0, 3997) + "...";
+      }
+      
+      return message.trim();
+    }
+
+    // Очистить все данные
+    function clearAllData() {
+      if (!confirm('Удалить ВСЕ данные? Это действие нельзя отменить!')) {
+        return;
+      }
+      
+      if (!confirm('Вы уверены? Все листы, задания и настройки Telegram будут удалены!')) {
+        return;
+      }
+      
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(TELEGRAM_SETTINGS_KEY);
+        
+        allSheets = {};
+        tasksData = [];
+        currentSheet = '';
+        telegramSettings = { botToken: '', chatId: '' };
+        
+        // Создаем новый лист
+        createInitialData();
+        updateSheetSelector();
+        renderTasks();
+        saveToStorage();
+        
+        showStatus('✅ Все данные удалены', 'success');
+      } catch (error) {
+        logError('Ошибка очистки данных', error);
+        showStatus('Ошибка очистки данных', 'error');
+      }
     }
 
     // Копирование в буфер обмена
@@ -1326,14 +1496,14 @@
     window.debugApp = {
       getAllData: () => allSheets,
       getCurrentData: () => tasksData,
-      clearAll: () => {
-        localStorage.removeItem(STORAGE_KEY);
-        location.reload();
-      },
+      clearAll: () => clearAllData(),
+      testTelegram: () => sendToTelegram(),
+      telegramConfigured: () => !!(telegramSettings.botToken && telegramSettings.chatId),
       exportDebug: () => {
         console.log('All sheets:', allSheets);
         console.log('Current sheet:', currentSheet);
         console.log('Current tasks:', tasksData);
+        console.log('Telegram configured:', !!(telegramSettings.botToken && telegramSettings.chatId));
       }
     };
   </script>
