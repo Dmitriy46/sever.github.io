@@ -1,28 +1,1109 @@
-// Заменить эту функцию:
-function saveToMemory() {
-  // Заменить на:
-  localStorage.setItem('cargoDispatcher', JSON.stringify(allSheets));
-  console.log('Данные сохранены в браузер');
-}
-
-// И эту функцию:
-function loadFromMemory() {
-  // Заменить на:
-  const saved = localStorage.getItem('cargoDispatcher');
-  if (saved) {
-    allSheets = JSON.parse(saved);
-    updateSheetSelector();
-    
-    // Выбираем последний лист
-    const sheets = Object.keys(allSheets);
-    if (sheets.length > 0) {
-      currentSheet = sheets[0];
-      tasksData = [...allSheets[currentSheet]];
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Диспетчер грузоперевозок</title>
+  <style>
+    /* Основные стили для мобильных устройств */
+    * {
+      box-sizing: border-box;
     }
-  } else {
-    // Создаем первый лист если нет данных
-    const today = new Date().toLocaleDateString('ru-RU');
-    allSheets[today] = [];
-    currentSheet = today;
-  }
-}
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      font-size: 18px;
+      margin: 0;
+      padding: 0;
+      background-color: #f0f2f5;
+      -webkit-text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 15px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    
+    .date-selector {
+      margin-top: 10px;
+    }
+    
+    .date-selector select {
+      width: 100%;
+      padding: 12px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.9);
+      color: #333;
+    }
+    
+    /* Главные кнопки действий */
+    .main-actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      padding: 15px;
+      background: white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    
+    .big-button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 15px 10px;
+      border: none;
+      border-radius: 12px;
+      background: #f8f9fa;
+      color: #333;
+      font-size: 14px;
+      min-height: 80px;
+      transition: all 0.2s;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      cursor: pointer;
+    }
+    
+    .big-button:active {
+      transform: scale(0.98);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .big-button .icon {
+      font-size: 28px;
+      margin-bottom: 5px;
+    }
+    
+    .big-button.primary {
+      background: #667eea;
+      color: white;
+    }
+    
+    .big-button.success {
+      background: #48bb78;
+      color: white;
+    }
+    
+    .big-button.danger {
+      background: #f56565;
+      color: white;
+    }
+    
+    .big-button.warning {
+      background: #f39c12;
+      color: white;
+    }
+    
+    /* Таблица заданий */
+    .tasks-container {
+      padding: 15px;
+    }
+    
+    .task-card {
+      background: white;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      position: relative;
+      transition: all 0.2s;
+    }
+    
+    .task-card.selected {
+      background: #e6f4ff;
+      box-shadow: 0 4px 10px rgba(102, 126, 234, 0.2);
+    }
+    
+    .task-card .machine-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .task-card .machine-name {
+      font-size: 20px;
+      font-weight: 600;
+      color: #667eea;
+      flex: 1;
+      padding: 8px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      min-height: 40px;
+      background: white;
+      transition: all 0.2s;
+      outline: none;
+    }
+    
+    .task-card .machine-name:empty:before {
+      content: "Нажмите для ввода машин(ы)";
+      color: #ff6666;
+      font-style: italic;
+      font-weight: normal;
+      font-size: 18px;
+    }
+    
+    .task-card .machine-name:focus {
+      border-color: #667eea;
+      background: white;
+    }
+    
+    .task-card .select-checkbox {
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+    }
+    
+    .task-detail {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: start;
+    }
+    
+    .task-detail .label {
+      font-size: 16px;
+      color: #666;
+      min-width: 110px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .task-detail .value {
+      font-size: 16px;
+      color: #333;
+      padding: 8px 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+      outline: none;
+    }
+    
+    .task-detail .value:focus {
+      border-color: #667eea;
+      background: white;
+    }
+    
+    .task-detail .value:empty:before {
+      content: attr(placeholder);
+      color: #999;
+      font-style: italic;
+    }
+    
+    /* Подзаказы */
+    .task-card .sub-orders {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #e0e0e0;
+    }
+    
+    .sub-order {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+      position: relative;
+    }
+    
+    .sub-order-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #666;
+    }
+    
+    .remove-sub-order {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: #ff6b6b;
+      color: white;
+      border-radius: 50%;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    
+    .add-sub-order-btn {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: 2px dashed #667eea;
+      background: transparent;
+      color: #667eea;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .add-sub-order-btn:active {
+      background: #667eea;
+      color: white;
+    }
+    
+    /* Дополнительные действия */
+    .more-actions {
+      padding: 0 15px 15px 15px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    
+    .secondary-button {
+      padding: 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      background: white;
+      font-size: 16px;
+      color: #666;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    
+    .secondary-button:active {
+      background: #f8f9fa;
+    }
+    
+    /* Статус сообщения */
+    .status {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      border-radius: 25px;
+      background: white;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      font-size: 16px;
+      z-index: 1001;
+      animation: fadeInOut 3s ease-in-out;
+      display: none;
+    }
+
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+      20% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+    }
+    
+    .status.success {
+      background: #48bb78;
+      color: white;
+    }
+    
+    .status.error {
+      background: #f56565;
+      color: white;
+    }
+    
+    /* Модальные окна */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 20px;
+      padding: 25px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    
+    .modal h3 {
+      margin: 0 0 20px 0;
+      font-size: 22px;
+      color: #333;
+    }
+    
+    .modal input {
+      width: 100%;
+      padding: 15px;
+      font-size: 18px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      outline: none;
+    }
+    
+    .modal input:focus {
+      border-color: #667eea;
+    }
+    
+    .modal-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .modal-button {
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    
+    .modal-button.cancel {
+      background: #f0f0f0;
+      color: #666;
+    }
+    
+    .modal-button.confirm {
+      background: #667eea;
+      color: white;
+    }
+    
+    /* Скрытый input для файлов */
+    .hidden-input {
+      display: none;
+    }
+    
+    @media (min-width: 768px) {
+      .main-actions {
+        grid-template-columns: repeat(6, 1fr);
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      
+      .more-actions {
+        grid-template-columns: repeat(4, 1fr);
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      
+      .tasks-container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📋 Диспетчер грузоперевозок</h1>
+    <div class="date-selector">
+      <select id="sheetSelector" onchange="loadSheet()">
+        <option value="_new">➕ Создать новую дату</option>
+      </select>
+    </div>
+  </div>
+  
+  <div class="main-actions">
+    <button onclick="addNewTask()" class="big-button warning">
+      <span class="icon">➕</span>
+      <span class="text">Новый заказ</span>
+    </button>
+    <button onclick="saveData()" class="big-button success">
+      <span class="icon">💾</span>
+      <span class="text">Сохранить</span>
+    </button>
+    <button onclick="copyToClipboard()" class="big-button">
+      <span class="icon">📋</span>
+      <span class="text">Копировать</span>
+    </button>
+    <button onclick="exportData()" class="big-button primary">
+      <span class="icon">📤</span>
+      <span class="text">Экспорт</span>
+    </button>
+  </div>
+  
+  <div class="tasks-container" id="tasksContainer">
+    <!-- Здесь будут карточки заданий -->
+  </div>
+  
+  <div class="more-actions">
+    <button onclick="duplicateSelected()" class="secondary-button">📑 Дублировать</button>
+    <button onclick="deleteSelected()" class="secondary-button">🗑️ Удалить выбранные</button>
+    <button onclick="importData()" class="secondary-button">📥 Импорт</button>
+    <button onclick="showManageDialog()" class="secondary-button">⚙️ Управление</button>
+  </div>
+
+  <!-- Статус -->
+  <div id="status" class="status"></div>
+
+  <!-- Скрытый input для импорта файлов -->
+  <input type="file" id="fileInput" class="hidden-input" accept=".json" onchange="handleFileImport(event)">
+  
+  <!-- Модальное окно создания листа -->
+  <div id="createModal" class="modal">
+    <div class="modal-content">
+      <h3>📅 Новая дата</h3>
+      <input type="text" id="newSheetName" placeholder="Например: 07.06.2024">
+      <div class="modal-buttons">
+        <button class="modal-button cancel" onclick="closeModal('createModal')">Отмена</button>
+        <button class="modal-button confirm" onclick="createNewSheet()">Создать</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Модальное окно переименования -->
+  <div id="renameModal" class="modal">
+    <div class="modal-content">
+      <h3>✏️ Переименовать</h3>
+      <input type="text" id="renameInput" placeholder="Новое название">
+      <div class="modal-buttons">
+        <button class="modal-button cancel" onclick="closeModal('renameModal')">Отмена</button>
+        <button class="modal-button confirm" onclick="confirmRename()">Переименовать</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Модальное окно удаления -->
+  <div id="deleteModal" class="modal">
+    <div class="modal-content">
+      <h3>🗑️ Удалить лист?</h3>
+      <p id="deleteText" style="margin: 20px 0; text-align: center; color: #666;"></p>
+      <div class="modal-buttons">
+        <button class="modal-button cancel" onclick="closeModal('deleteModal')">Отмена</button>
+        <button class="modal-button confirm" style="background: #f56565;" onclick="confirmDelete()">Удалить</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Модальное окно управления -->
+  <div id="manageModal" class="modal">
+    <div class="modal-content">
+      <h3>⚙️ Управление листами</h3>
+      <button class="modal-button" onclick="closeModal('manageModal'); showRenameDialog();" style="width: 100%; margin-bottom: 10px;">✏️ Переименовать лист</button>
+      <button class="modal-button" onclick="closeModal('manageModal'); showDeleteDialog();" style="width: 100%; background: #f56565; color: white;">🗑️ Удалить лист</button>
+      <div class="modal-buttons" style="margin-top: 20px;">
+        <button class="modal-button cancel" onclick="closeModal('manageModal')">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Глобальные переменные
+    let currentSheet = '';
+    let selectedTasks = new Set();
+    let tasksData = []; // Массив объектов с машинами и заказами
+    let allSheets = {}; // Все листы в памяти
+    
+    // Шаблоны для быстрого заполнения
+    const templates = {
+      machines: ['107', '486', '513', '444', '284', '295', '689', '986', '795', 'лагуна'],
+      cargo: ['песок', 'щебень 31/63 м800', 'пгс', 'асфальт', 'почасовая'],
+      routes: [
+        'селычка - завьялово',
+        'Сидоровы горы - ильф закирова',
+        'сид горы - жк покровский',
+        'селычка - жк магистральный',
+        'сидоровы горы - Юськи',
+        'абз агат - баграш бигра',
+        'с поймы 34 на Можгу'
+      ],
+      customers: [
+        'ООО Союзпромсирой',
+        'ООО Римар', 
+        'ООО ИЖГОРОДСТРОЙ',
+        'ООО Инком',
+        'ООО Дорстрой 44',
+        'ООО ДМС'
+      ]
+    };
+    
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', () => {
+      loadFromMemory();
+      setupEventListeners();
+      
+      // Создаем первый лист если нет данных
+      if (Object.keys(allSheets).length === 0) {
+        const today = new Date().toLocaleDateString('ru-RU');
+        allSheets[today] = [];
+        currentSheet = today;
+        updateSheetSelector();
+        loadSheet();
+      }
+    });
+    
+    // Настройка обработчиков событий
+    function setupEventListeners() {
+      // Закрытие модалок по клику вне
+      document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.style.display = 'none';
+          }
+        });
+      });
+      
+      // Автосохранение каждые 30 секунд
+      setInterval(saveToMemory, 30000);
+      
+      // Сохранение при закрытии страницы
+      window.addEventListener('beforeunload', saveToMemory);
+    }
+    
+    // Сохранение в память браузера
+    function saveToMemory() {
+      try {
+        localStorage.setItem('cargoDispatcher', JSON.stringify(allSheets));
+        console.log('Данные сохранены в браузер');
+      } catch (error) {
+        console.error('Ошибка сохранения:', error);
+      }
+    }
+    
+    // Загрузка из памяти браузера
+    function loadFromMemory() {
+      try {
+        const saved = localStorage.getItem('cargoDispatcher');
+        if (saved) {
+          allSheets = JSON.parse(saved);
+          updateSheetSelector();
+          
+          // Выбираем последний лист
+          const sheets = Object.keys(allSheets);
+          if (sheets.length > 0) {
+            currentSheet = sheets[0];
+            tasksData = [...allSheets[currentSheet]];
+          }
+        } else {
+          // Создаем первый лист если нет данных
+          const today = new Date().toLocaleDateString('ru-RU');
+          allSheets[today] = [
+            {
+              machines: '107',
+              orders: [{
+                cargo: 'песок',
+                from: 'селычка', 
+                to: 'завьялово',
+                customer: 'ООО Союзпромсирой',
+                note: 'первая поездка (пример)'
+              }]
+            }
+          ];
+          currentSheet = today;
+          updateSheetSelector();
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки:', error);
+        // Fallback - создаем пустой лист
+        const today = new Date().toLocaleDateString('ru-RU');
+        allSheets[today] = [];
+        currentSheet = today;
+        updateSheetSelector();
+      }
+    }
+    
+    // Обновление селектора листов
+    function updateSheetSelector() {
+      const selector = document.getElementById('sheetSelector');
+      const sheets = Object.keys(allSheets).sort().reverse(); // Новые даты сверху
+      
+      selector.innerHTML = '<option value="_new">➕ Создать новую дату</option>' +
+        sheets.map(sheet => `<option value="${sheet}" ${sheet === currentSheet ? 'selected' : ''}>${sheet}</option>`).join('');
+    }
+    
+    // Загрузка данных листа
+    function loadSheet() {
+      const sheetName = document.getElementById('sheetSelector').value;
+      
+      if (sheetName === '_new') {
+        document.getElementById('sheetSelector').value = currentSheet;
+        showModal('createModal');
+        return;
+      }
+      
+      if (!sheetName || !allSheets[sheetName]) return;
+      
+      currentSheet = sheetName;
+      tasksData = [...allSheets[currentSheet]]; // Копируем данные
+      renderTasks();
+      showStatus('Лист загружен', 'success');
+    }
+    
+    // Отрисовка заданий
+    function renderTasks() {
+      const container = document.getElementById('tasksContainer');
+      container.innerHTML = '';
+      selectedTasks.clear();
+      
+      tasksData.forEach((task, index) => {
+        if (!task.machines && task.orders.every(o => !o.cargo && !o.from && !o.to && !o.customer)) return;
+        
+        const taskCard = createTaskCard(task, index);
+        container.appendChild(taskCard);
+      });
+      
+      if (tasksData.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Нет заданий. Добавьте новый заказ!</div>';
+      }
+    }
+    
+    // Создание карточки задания
+    function createTaskCard(taskData, index) {
+      const card = document.createElement('div');
+      card.className = 'task-card';
+      card.dataset.index = index;
+      
+      let html = `
+        <div class="machine-header">
+          <div style="flex: 1; display: flex; align-items: center;">
+            <span style="color: red; font-size: 24px; margin-right: 5px;">*</span>
+            <div class="machine-name" contenteditable="true" data-field="machines">${taskData.machines ? '🚛 ' + taskData.machines : ''}</div>
+          </div>
+          <input type="checkbox" class="select-checkbox" onchange="toggleSelection(${index})">
+        </div>
+        <div class="sub-orders">
+      `;
+      
+      taskData.orders.forEach((order, orderIndex) => {
+        html += `
+          <div class="sub-order" data-order-index="${orderIndex}">
+            <div class="sub-order-header">
+              <span>Заказ ${orderIndex + 1}</span>
+              ${taskData.orders.length > 1 ? `<button class="remove-sub-order" onclick="removeSubOrder(${index}, ${orderIndex})">×</button>` : ''}
+            </div>
+            <div class="task-detail">
+              <span class="label">📦 Груз:</span>
+              <div class="value" contenteditable="true" data-field="cargo" data-order="${orderIndex}" placeholder="Введите груз">${order.cargo || ''}</div>
+            </div>
+            <div class="task-detail">
+              <span class="label">📍 Откуда:</span>
+              <div class="value" contenteditable="true" data-field="from" data-order="${orderIndex}" placeholder="Место загрузки">${order.from || ''}</div>
+            </div>
+            <div class="task-detail">
+              <span class="label">📍 Куда:</span>
+              <div class="value" contenteditable="true" data-field="to" data-order="${orderIndex}" placeholder="Место выгрузки">${order.to || ''}</div>
+            </div>
+            <div class="task-detail">
+              <span class="label">👤 Заказчик:</span>
+              <div class="value" contenteditable="true" data-field="customer" data-order="${orderIndex}" placeholder="Название компании">${order.customer || ''}</div>
+            </div>
+            <div class="task-detail">
+              <span class="label">📝 Заметка:</span>
+              <div class="value" contenteditable="true" data-field="note" data-order="${orderIndex}" placeholder="Дополнительная информация">${order.note || ''}</div>
+            </div>
+          </div>
+        `;
+      });
+      
+      html += `
+          <button class="add-sub-order-btn" onclick="addSubOrder(${index})">+ Добавить заказ для этих машин</button>
+        </div>
+      `;
+      
+      card.innerHTML = html;
+      
+      // Обработчики изменений
+      card.querySelectorAll('[contenteditable]').forEach(elem => {
+        elem.addEventListener('input', () => updateTaskData(index, elem));
+        elem.addEventListener('blur', saveToMemory); // Автосохранение при потере фокуса
+      });
+      
+      return card;
+    }
+    
+    // Обновление данных задания
+    function updateTaskData(index, element) {
+      const field = element.dataset.field;
+      const orderIndex = element.dataset.order;
+      const value = element.textContent.trim();
+      
+      if (field === 'machines') {
+        tasksData[index].machines = value;
+      } else if (orderIndex !== undefined) {
+        tasksData[index].orders[orderIndex][field] = value;
+      }
+    }
+    
+    // Добавить подзаказ
+    function addSubOrder(taskIndex) {
+      tasksData[taskIndex].orders.push({
+        cargo: '',
+        from: '',
+        to: '',
+        customer: '',
+        note: ''
+      });
+      renderTasks();
+      
+      setTimeout(() => {
+        const card = document.querySelector(`.task-card[data-index="${taskIndex}"]`);
+        const newOrder = card.querySelector('.sub-order:last-child');
+        newOrder.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        newOrder.querySelector('[data-field="cargo"]').focus();
+      }, 100);
+    }
+    
+    // Удалить подзаказ
+    function removeSubOrder(taskIndex, orderIndex) {
+      if (tasksData[taskIndex].orders.length > 1) {
+        tasksData[taskIndex].orders.splice(orderIndex, 1);
+        renderTasks();
+        showStatus('Заказ удален', 'success');
+        saveToMemory();
+      }
+    }
+    
+    // Переключение выделения
+    function toggleSelection(index) {
+      const card = document.querySelector(`.task-card[data-index="${index}"]`);
+      if (selectedTasks.has(index)) {
+        selectedTasks.delete(index);
+        card.classList.remove('selected');
+      } else {
+        selectedTasks.add(index);
+        card.classList.add('selected');
+      }
+    }
+    
+    // Добавление нового задания
+    function addNewTask() {
+      const newTask = {
+        machines: '',
+        orders: [{
+          cargo: '',
+          from: '',
+          to: '',
+          customer: '',
+          note: ''
+        }]
+      };
+      tasksData.push(newTask);
+      renderTasks();
+      
+      setTimeout(() => {
+        const newCard = document.querySelector(`.task-card[data-index="${tasksData.length - 1}"]`);
+        if (newCard) {
+          newCard.querySelector('[data-field="machines"]').focus();
+          newCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+    
+    // Дублировать выбранные задания
+    function duplicateSelected() {
+      if (selectedTasks.size === 0) {
+        showStatus('Выберите задания для дублирования', 'error');
+        return;
+      }
+      
+      const indices = Array.from(selectedTasks).sort((a, b) => b - a);
+      indices.forEach(index => {
+        const original = tasksData[index];
+        const duplicate = {
+          machines: '',
+          orders: original.orders.map(order => ({...order}))
+        };
+        tasksData.splice(index + 1, 0, duplicate);
+      });
+      
+      renderTasks();
+      showStatus(`Продублировано заданий: ${indices.length}`, 'success');
+      saveToMemory();
+    }
+    
+    // Удалить выбранные задания
+    function deleteSelected() {
+      if (selectedTasks.size === 0) {
+        showStatus('Выберите задания для удаления', 'error');
+        return;
+      }
+      
+      if (!confirm(`Удалить выбранные задания (${selectedTasks.size} шт.)?`)) {
+        return;
+      }
+      
+      const indices = Array.from(selectedTasks).sort((a, b) => b - a);
+      indices.forEach(index => {
+        tasksData.splice(index, 1);
+      });
+      
+      renderTasks();
+      showStatus('Задания удалены', 'success');
+      saveToMemory();
+    }
+    
+    // Сохранение данных
+    function saveData() {
+      // Проверка на пустые машины
+      const emptyMachines = tasksData.filter(t => !t.machines && t.orders.some(o => o.cargo || o.from || o.to || o.customer));
+      if (emptyMachines.length > 0) {
+        showStatus('❌ Заполните номера машин во всех заказах!', 'error');
+        document.querySelectorAll('.machine-name').forEach(el => {
+          if (!el.textContent.trim()) {
+            el.style.animation = 'shake 0.5s';
+            setTimeout(() => el.style.animation = '', 500);
+          }
+        });
+        return;
+      }
+      
+      // Сохраняем в allSheets
+      allSheets[currentSheet] = [...tasksData];
+      saveToMemory();
+      showStatus('Данные сохранены!', 'success');
+    }
+    
+    // Экспорт данных
+    function exportData() {
+      const data = {
+        sheets: allSheets,
+        exportDate: new Date().toISOString(),
+        version: '1.0'
+      };
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cargo-dispatcher-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      showStatus('Данные экспортированы!', 'success');
+    }
+    
+    // Импорт данных
+    function importData() {
+      document.getElementById('fileInput').click();
+    }
+    
+    // Обработка импорта файла
+    function handleFileImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data.sheets) {
+            if (confirm('Импортировать данные? Текущие данные будут заменены.')) {
+              allSheets = data.sheets;
+              const sheets = Object.keys(allSheets);
+              if (sheets.length > 0) {
+                currentSheet = sheets[0];
+                tasksData = [...allSheets[currentSheet]];
+              }
+              updateSheetSelector();
+              renderTasks();
+              saveToMemory();
+              showStatus('Данные импортированы!', 'success');
+            }
+          } else {
+            throw new Error('Неверный формат файла');
+          }
+        } catch (error) {
+          showStatus('Ошибка импорта: ' + error.message, 'error');
+        }
+      };
+      reader.readAsText(file);
+    }
+    
+    // Копирование в буфер обмена
+    function copyToClipboard() {
+      const message = formatForClipboard();
+      
+      navigator.clipboard.writeText(message)
+        .then(() => showStatus('Скопировано!', 'success'))
+        .catch(() => {
+          const textarea = document.createElement('textarea');
+          textarea.value = message;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+          showStatus('Скопировано!', 'success');
+        });
+    }
+    
+    // Форматирование для буфера обмена
+    function formatForClipboard() {
+      let message = `📅 ${currentSheet}\n\n`;
+      
+      tasksData.forEach((task, taskIndex) => {
+        if (!task.machines) return;
+        
+        message += `🚛 ${task.machines}\n`;
+        
+        task.orders.forEach((order, orderIndex) => {
+          if (task.orders.length > 1) {
+            message += `  ${orderIndex + 1}. `;
+          } else {
+            message += `  `;
+          }
+          
+          message += `📦 ${order.cargo || '-'} | `;
+          message += `📍 ${order.from || '?'} → ${order.to || '?'} | `;
+          message += `👤 ${order.customer || '-'}`;
+          
+          if (order.note) {
+            message += `\n     📝 ${order.note}`;
+          }
+          message += '\n';
+        });
+        
+        message += '\n';
+      });
+      
+      return message.trim();
+    }
+    
+    // Показать диалог управления
+    function showManageDialog() {
+      showModal('manageModal');
+    }
+    
+    // Показать модальное окно
+    function showModal(modalId) {
+      document.getElementById(modalId).style.display = 'flex';
+      const input = document.querySelector(`#${modalId} input`);
+      if (input) {
+        input.value = '';
+        setTimeout(() => input.focus(), 100);
+      }
+    }
+    
+    // Закрыть модальное окно
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+    
+    // Создать новый лист
+    function createNewSheet() {
+      const name = document.getElementById('newSheetName').value.trim();
+      if (!name) {
+        showStatus('Введите название', 'error');
+        return;
+      }
+      
+      if (allSheets[name]) {
+        showStatus('Лист с таким названием уже существует', 'error');
+        return;
+      }
+      
+      allSheets[name] = [];
+      currentSheet = name;
+      tasksData = [];
+      
+      updateSheetSelector();
+      renderTasks();
+      closeModal('createModal');
+      saveToMemory();
+      showStatus('Лист создан', 'success');
+    }
+    
+    // Показать диалог переименования
+    function showRenameDialog() {
+      if (!currentSheet) return;
+      
+      const input = document.getElementById('renameInput');
+      input.value = currentSheet;
+      showModal('renameModal');
+    }
+    
+    // Подтвердить переименование
+    function confirmRename() {
+      const newName = document.getElementById('renameInput').value.trim();
+      if (!newName || newName === currentSheet) {
+        closeModal('renameModal');
+        return;
+      }
+      
+      if (allSheets[newName]) {
+        showStatus('Лист с таким названием уже существует', 'error');
+        return;
+      }
+      
+      allSheets[newName] = allSheets[currentSheet];
+      delete allSheets[currentSheet];
+      currentSheet = newName;
+      
+      updateSheetSelector();
+      closeModal('renameModal');
+      saveToMemory();
+      showStatus('Переименовано', 'success');
+    }
+    
+    // Показать диалог удаления
+    function showDeleteDialog() {
+      if (!currentSheet) return;
+      
+      document.getElementById('deleteText').textContent = `Удалить лист "${currentSheet}"?`;
+      showModal('deleteModal');
+    }
+    
+    // Подтвердить удаление
+    function confirmDelete() {
+      if (Object.keys(allSheets).length === 1) {
+        showStatus('Нельзя удалить последний лист', 'error');
+        return;
+      }
+      
+      delete allSheets[currentSheet];
+      const sheets = Object.keys(allSheets);
+      currentSheet = sheets[0] || '';
+      tasksData = currentSheet ? [...allSheets[currentSheet]] : [];
+      
+      updateSheetSelector();
+      renderTasks();
+      closeModal('deleteModal');
+      saveToMemory();
+      showStatus('Лист удален', 'success');
+    }
+    
+    // Показать статус
+    function showStatus(message, type = '') {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = 'status ' + type;
+      status.style.display = 'block';
+      
+      if (type) {
+        setTimeout(() => {
+          status.style.display = 'none';
+        }, 3000);
+      }
+    }
+
+    // Добавляем стиль для анимации shake
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
+</body>
+</html>
