@@ -1312,6 +1312,12 @@
       const textEl = document.getElementById('cloudText');
       const btnEl = document.getElementById('cloudBtn');
       
+      // Защита от отсутствующих элементов
+      if (!statusEl || !iconEl || !textEl || !btnEl) {
+        logError('Элементы статуса облака не найдены');
+        return;
+      }
+      
       const isCloudEnabled = firebaseSettings.enabled || githubSettings.enabled;
       
       if (!isCloudEnabled) {
@@ -1353,8 +1359,15 @@
 
     // UI функции для облака
     function showCloudSync() {
+      // Проверяем что элементы существуют
       const notConfigured = document.getElementById('cloudNotConfigured');
       const configured = document.getElementById('cloudConfigured');
+      
+      if (!notConfigured || !configured) {
+        logError('Модальные элементы облака не найдены');
+        showStatus('Ошибка интерфейса. Перезагрузите страницу.', 'error');
+        return;
+      }
       
       const isCloudEnabled = firebaseSettings.enabled || githubSettings.enabled;
       
@@ -1362,29 +1375,39 @@
         notConfigured.style.display = 'none';
         configured.style.display = 'block';
         
-        // Обновляем информацию
+        // Безопасно обновляем информацию
+        const typeEl = document.getElementById('cloudType');
+        const userEl = document.getElementById('cloudUser');
+        const statusEl = document.getElementById('cloudConnectionStatus');
+        const iconEl = document.getElementById('cloudStatusIcon');
+        const textEl = document.getElementById('cloudStatusText');
+        const gistInfo = document.getElementById('cloudGistInfo');
+        
         if (firebaseSettings.enabled) {
-          document.getElementById('cloudType').textContent = 'Firebase';
-          document.getElementById('cloudUser').textContent = firebaseSettings.userId;
-          document.getElementById('cloudConnectionStatus').textContent = isOnline ? 'Онлайн' : 'Оффлайн';
-          document.getElementById('cloudStatusIcon').textContent = isOnline ? '🔥' : '📡';
-          document.getElementById('cloudStatusText').textContent = isOnline ? 'Firebase подключен' : 'Firebase оффлайн';
-          document.getElementById('cloudGistInfo').style.display = 'none';
+          if (typeEl) typeEl.textContent = 'Firebase';
+          if (userEl) userEl.textContent = firebaseSettings.userId;
+          if (statusEl) statusEl.textContent = isOnline ? 'Онлайн' : 'Оффлайн';
+          if (iconEl) iconEl.textContent = isOnline ? '🔥' : '📡';
+          if (textEl) textEl.textContent = isOnline ? 'Firebase подключен' : 'Firebase оффлайн';
+          if (gistInfo) gistInfo.style.display = 'none';
         } else if (githubSettings.enabled) {
-          document.getElementById('cloudType').textContent = 'GitHub Gist';
-          document.getElementById('cloudUser').textContent = 'GitHub пользователь';
-          document.getElementById('cloudConnectionStatus').textContent = 'Готов';
-          document.getElementById('cloudStatusIcon').textContent = '🐙';
-          document.getElementById('cloudStatusText').textContent = 'GitHub подключен';
+          if (typeEl) typeEl.textContent = 'GitHub Gist';
+          if (userEl) userEl.textContent = 'GitHub пользователь';
+          if (statusEl) statusEl.textContent = 'Готов';
+          if (iconEl) iconEl.textContent = '🐙';
+          if (textEl) textEl.textContent = 'GitHub подключен';
           
           // Показываем информацию о Gist
-          const gistInfo = document.getElementById('cloudGistInfo');
-          if (githubSettings.gistId) {
-            gistInfo.style.display = 'block';
-            document.getElementById('cloudGistId').textContent = githubSettings.gistId;
-            document.getElementById('cloudGistLink').href = `https://gist.github.com/${githubSettings.gistId}`;
-          } else {
-            gistInfo.style.display = 'none';
+          if (gistInfo) {
+            if (githubSettings.gistId) {
+              gistInfo.style.display = 'block';
+              const gistIdEl = document.getElementById('cloudGistId');
+              const gistLinkEl = document.getElementById('cloudGistLink');
+              if (gistIdEl) gistIdEl.textContent = githubSettings.gistId;
+              if (gistLinkEl) gistLinkEl.href = `https://gist.github.com/${githubSettings.gistId}`;
+            } else {
+              gistInfo.style.display = 'none';
+            }
           }
         }
       } else {
@@ -2691,13 +2714,17 @@ ${compressedData}`;
     // Модальные окна
     function showModal(modalId) {
       const modal = document.getElementById(modalId);
-      if (modal) {
-        modal.classList.add('show');
-        const input = modal.querySelector('input');
-        if (input) {
-          input.value = '';
-          setTimeout(() => input.focus(), 300);
-        }
+      if (!modal) {
+        logError(`Модальное окно ${modalId} не найдено`);
+        showStatus('Ошибка интерфейса. Перезагрузите страницу.', 'error');
+        return;
+      }
+      
+      modal.classList.add('show');
+      const input = modal.querySelector('input');
+      if (input) {
+        input.value = '';
+        setTimeout(() => input.focus(), 300);
       }
     }
 
@@ -2832,8 +2859,29 @@ ${compressedData}`;
       testFirebaseSync: () => syncToCloud(),
       testGitHubSync: () => syncToGitHub(),
       testGitHubConnection: () => testGitHubConnection(),
+      quickSetupGitHub: (token) => {
+        if (!token) {
+          console.log('Использование: debugApp.quickSetupGitHub("ваш_токен")');
+          return;
+        }
+        githubSettings = {
+          token: token,
+          gistId: '',
+          fileName: 'cargo-dispatcher-data.json',
+          isPrivate: true,
+          enabled: true
+        };
+        saveGitHubSettingsToStorage();
+        console.log('GitHub Gist настроен! Тестируем подключение...');
+        testGitHubConnection();
+      },
       cloudStatus: () => ({
-        firebase: { enabled: firebaseSettings.enabled, online: isOnline, syncing: syncInProgress },
+        firebase: { 
+          enabled: firebaseSettings.enabled, 
+          online: isOnline, 
+          syncing: syncInProgress,
+          sdkLoaded: typeof firebase !== 'undefined'
+        },
         github: { enabled: githubSettings.enabled, syncing: githubSyncInProgress, gistId: githubSettings.gistId },
         userId: firebaseSettings.userId || 'none'
       }),
@@ -2858,6 +2906,7 @@ ${compressedData}`;
         console.log('Data size:', window.debugApp.getDataSize());
         console.log('Navigation: Enter/Tab для перехода, Shift+Tab для обратного перехода');
         console.log('Sync: Firebase для реального времени, GitHub Gist для версионности');
+        console.log('Quick GitHub setup: debugApp.quickSetupGitHub("your_token")');
       }
     };
   </script>
