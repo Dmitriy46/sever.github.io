@@ -132,6 +132,12 @@
       background: #e6f4ff;
       box-shadow: 0 4px 10px rgba(102, 126, 234, 0.2);
     }
+
+    .task-card.editing {
+      background: #f8fff8;
+      box-shadow: 0 4px 15px rgba(72, 187, 120, 0.15);
+      border-left: 4px solid #48bb78;
+    }
     
     .task-card .machine-header {
       display: flex;
@@ -449,6 +455,44 @@
     .shake {
       animation: shake 0.5s ease-in-out;
     }
+
+    /* Стили для клавиш */
+    kbd {
+      background: #f4f4f4;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.2), 0 0 0 2px #fff inset;
+      color: #333;
+      display: inline-block;
+      font-family: monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      margin: 0 2px;
+      padding: 2px 6px;
+      text-shadow: 0 1px 0 #fff;
+    }
+    
+    /* Плавные переходы для полей */
+    .task-detail .value,
+    .task-card .machine-name {
+      transition: all 0.2s ease;
+    }
+
+    /* Анимация при переходе фокуса */
+    @keyframes focusGlow {
+      0% {
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        transform: scale(1);
+      }
+      50% {
+        box-shadow: 0 0 0 6px rgba(102, 126, 234, 0.3);
+        transform: scale(1.05);
+      }
+      100% {
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        transform: scale(1.02);
+      }
+    }
     
     /* Пустое состояние */
     .empty-state {
@@ -521,6 +565,11 @@
       <div class="icon">📋</div>
       <div>Загрузка данных...</div>
     </div>
+  </div>
+
+  <!-- Подсказка по навигации -->
+  <div id="navigationTip" style="text-align: center; padding: 10px; background: #f8f9fa; margin: 0 15px; border-radius: 8px; font-size: 14px; color: #666; border-left: 4px solid #667eea; display: none;">
+    💡 <strong>Совет:</strong> Используйте <kbd>Enter</kbd> или <kbd>Tab</kbd> для быстрого перехода между полями
   </div>
   
   <div class="more-actions">
@@ -855,6 +904,7 @@
     // Отрисовка заданий
     function renderTasks() {
       const container = document.getElementById('tasksContainer');
+      const helpTip = document.getElementById('navigationTip');
       container.innerHTML = '';
       selectedTasks.clear();
       
@@ -865,6 +915,7 @@
             <div>Нет заданий. Добавьте новый заказ!</div>
           </div>
         `;
+        if (helpTip) helpTip.style.display = 'none';
         return;
       }
       
@@ -873,6 +924,9 @@
         const taskCard = createTaskCard(task, index);
         container.appendChild(taskCard);
       });
+      
+      // Показываем подсказку о навигации
+      if (helpTip) helpTip.style.display = 'block';
     }
 
     // Создание карточки задания
@@ -938,6 +992,30 @@
           // Автосохранение при потере фокуса
           allSheets[currentSheet] = [...tasksData];
           saveToStorage();
+          
+          // Убираем подсветку карточки
+          card.classList.remove('editing');
+        });
+        
+        elem.addEventListener('focus', () => {
+          // Подсвечиваем карточку при фокусе
+          card.classList.add('editing');
+        });
+        
+        // Навигация по полям
+        elem.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            moveToNextField(elem);
+          } else if (e.key === 'Tab') {
+            // Tab тоже работает для перехода
+            e.preventDefault();
+            if (e.shiftKey) {
+              moveToPrevField(elem);
+            } else {
+              moveToNextField(elem);
+            }
+          }
         });
       });
       
@@ -956,6 +1034,153 @@
         tasksData[index].machines = value;
       } else if (orderIndex !== undefined && tasksData[index].orders[orderIndex]) {
         tasksData[index].orders[orderIndex][field] = value;
+      }
+    }
+
+    // Навигация между полями
+    function moveToNextField(currentElement) {
+      const field = currentElement.dataset.field;
+      const orderIndex = currentElement.dataset.order;
+      const taskCard = currentElement.closest('.task-card');
+      const taskIndex = parseInt(taskCard.dataset.index);
+      
+      let nextElement = null;
+      
+      // Определяем следующее поле
+      if (field === 'machines') {
+        // От машин к первому грузу
+        nextElement = taskCard.querySelector('[data-field="cargo"][data-order="0"]');
+      } else if (field === 'cargo') {
+        // От груза к откуда
+        nextElement = taskCard.querySelector(`[data-field="from"][data-order="${orderIndex}"]`);
+      } else if (field === 'from') {
+        // От откуда к куда
+        nextElement = taskCard.querySelector(`[data-field="to"][data-order="${orderIndex}"]`);
+      } else if (field === 'to') {
+        // От куда к заказчику
+        nextElement = taskCard.querySelector(`[data-field="customer"][data-order="${orderIndex}"]`);
+      } else if (field === 'customer') {
+        // От заказчика к заметке
+        nextElement = taskCard.querySelector(`[data-field="note"][data-order="${orderIndex}"]`);
+      } else if (field === 'note') {
+        // От заметки к следующему заказу или новой карточке
+        const nextOrderIndex = parseInt(orderIndex) + 1;
+        nextElement = taskCard.querySelector(`[data-field="cargo"][data-order="${nextOrderIndex}"]`);
+        
+        if (!nextElement) {
+          // Можем создать новый заказ в той же карточке если есть машины
+          const machinesField = taskCard.querySelector('[data-field="machines"]');
+          if (machinesField && machinesField.textContent.trim()) {
+            // Создаем новый заказ в текущей карточке
+            addSubOrder(taskIndex);
+            setTimeout(() => {
+              const newOrder = taskCard.querySelector(`[data-field="cargo"][data-order="${nextOrderIndex}"]`);
+              if (newOrder) {
+                newOrder.focus();
+                showStatus('➕ Добавлен новый заказ', 'success');
+              }
+            }, 100);
+            return;
+          } else {
+            // Переходим к следующей карточке или создаем новую
+            const nextTaskCard = document.querySelector(`.task-card[data-index="${taskIndex + 1}"]`);
+            if (nextTaskCard) {
+              nextElement = nextTaskCard.querySelector('[data-field="machines"]');
+            } else {
+              // Создаем новую карточку
+              addNewTask();
+              setTimeout(() => {
+                const newCard = document.querySelector(`.task-card[data-index="${tasksData.length - 1}"]`);
+                if (newCard) {
+                  nextElement = newCard.querySelector('[data-field="machines"]');
+                  if (nextElement) nextElement.focus();
+                }
+              }, 100);
+              return;
+            }
+          }
+        }
+      }
+      
+      if (nextElement) {
+        nextElement.focus();
+        
+        // Плавная анимация перехода
+        nextElement.style.animation = 'focusGlow 0.5s ease-out';
+        setTimeout(() => {
+          nextElement.style.animation = '';
+        }, 500);
+        
+        // Устанавливаем курсор в конец текста
+        if (nextElement.textContent) {
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.selectNodeContents(nextElement);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }
+    }
+    
+    function moveToPrevField(currentElement) {
+      const field = currentElement.dataset.field;
+      const orderIndex = currentElement.dataset.order;
+      const taskCard = currentElement.closest('.task-card');
+      const taskIndex = parseInt(taskCard.dataset.index);
+      
+      let prevElement = null;
+      
+      // Определяем предыдущее поле
+      if (field === 'cargo' && orderIndex === '0') {
+        // От первого груза к машинам
+        prevElement = taskCard.querySelector('[data-field="machines"]');
+      } else if (field === 'cargo') {
+        // От груза к заметке предыдущего заказа
+        const prevOrderIndex = parseInt(orderIndex) - 1;
+        prevElement = taskCard.querySelector(`[data-field="note"][data-order="${prevOrderIndex}"]`);
+      } else if (field === 'from') {
+        // От откуда к грузу
+        prevElement = taskCard.querySelector(`[data-field="cargo"][data-order="${orderIndex}"]`);
+      } else if (field === 'to') {
+        // От куда к откуда
+        prevElement = taskCard.querySelector(`[data-field="from"][data-order="${orderIndex}"]`);
+      } else if (field === 'customer') {
+        // От заказчика к куда
+        prevElement = taskCard.querySelector(`[data-field="to"][data-order="${orderIndex}"]`);
+      } else if (field === 'note') {
+        // От заметки к заказчику
+        prevElement = taskCard.querySelector(`[data-field="customer"][data-order="${orderIndex}"]`);
+      } else if (field === 'machines') {
+        // От машин к предыдущей карточке
+        const prevTaskCard = document.querySelector(`.task-card[data-index="${taskIndex - 1}"]`);
+        if (prevTaskCard) {
+          // Находим последнее поле в предыдущей карточке
+          const lastSubOrder = prevTaskCard.querySelector('.sub-order:last-child');
+          if (lastSubOrder) {
+            prevElement = lastSubOrder.querySelector('[data-field="note"]');
+          }
+        }
+      }
+      
+      if (prevElement) {
+        prevElement.focus();
+        
+        // Плавная анимация перехода
+        prevElement.style.animation = 'focusGlow 0.5s ease-out';
+        setTimeout(() => {
+          prevElement.style.animation = '';
+        }, 500);
+        
+        // Устанавливаем курсор в конец текста
+        if (prevElement.textContent) {
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.selectNodeContents(prevElement);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
       }
     }
 
@@ -1499,11 +1724,19 @@
       clearAll: () => clearAllData(),
       testTelegram: () => sendToTelegram(),
       telegramConfigured: () => !!(telegramSettings.botToken && telegramSettings.chatId),
+      testNavigation: () => {
+        const firstField = document.querySelector('[contenteditable]');
+        if (firstField) {
+          firstField.focus();
+          console.log('Используйте Enter или Tab для перехода между полями');
+        }
+      },
       exportDebug: () => {
         console.log('All sheets:', allSheets);
         console.log('Current sheet:', currentSheet);
         console.log('Current tasks:', tasksData);
         console.log('Telegram configured:', !!(telegramSettings.botToken && telegramSettings.chatId));
+        console.log('Navigation: Enter/Tab для перехода, Shift+Tab для обратного перехода');
       }
     };
   </script>
