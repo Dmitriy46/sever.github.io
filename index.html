@@ -754,6 +754,175 @@
     </div>
   </div>
 
+  <!-- Модальное окно облачной синхронизации -->
+  <div id="cloudSyncModal" class="modal">
+    <div class="modal-content">
+      <h3>☁️ Облачная синхронизация</h3>
+      
+      <div id="cloudNotConfigured">
+        <div style="margin-bottom: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; font-size: 14px; color: #1565c0;">
+          🚀 <strong>Автоматическая синхронизация</strong><br>
+          Данные будут автоматически сохраняться в облаке и синхронизироваться между всеми устройствами в реальном времени!
+        </div>
+        
+        <div style="display: grid; gap: 10px;">
+          <button class="modal-button confirm" onclick="showFirebaseSetup()" style="width: 100%;">
+            🔥 <strong>Firebase (Google)</strong><br>
+            <small>Бесплатно, реальное время, до 1GB</small>
+          </button>
+          
+          <button class="modal-button" onclick="showGitHubSetup()" style="width: 100%; background: #24292e; color: white;">
+            🐙 <strong>GitHub Gist</strong><br>
+            <small>Версионность, надежность, для GitHub пользователей</small>
+          </button>
+          
+          <button class="modal-button" onclick="showTelegramCloudSetup()" style="width: 100%; background: #0088cc; color: white;">
+            📱 <strong>Telegram Storage</strong><br>
+            <small>Используем ваш бот как хранилище</small>
+          </button>
+        </div>
+        
+        <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 12px; color: #666;">
+          💡 <strong>Рекомендация:</strong> Firebase - самый простой вариант для большинства пользователей
+        </div>
+      </div>
+
+      <div id="cloudConfigured" style="display: none;">
+        <div style="margin-bottom: 15px; padding: 15px; background: #d4edda; border-radius: 8px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <span id="cloudStatusIcon">☁️</span>
+            <strong id="cloudStatusText">Подключено</strong>
+          </div>
+          <div style="font-size: 12px; color: #495057;">
+            <div>Тип: <span id="cloudType">Firebase</span></div>
+            <div>Пользователь: <span id="cloudUser">ID</span></div>
+            <div>Статус: <span id="cloudConnectionStatus">Онлайн</span></div>
+            <div id="cloudGistInfo" style="display: none;">
+              <div>Gist ID: <span id="cloudGistId">-</span></div>
+              <div><a id="cloudGistLink" href="#" target="_blank" style="color: #0366d6;">Открыть в GitHub</a></div>
+            </div>
+          </div>
+        </div>
+        
+        <div style="display: grid; gap: 10px;">
+          <button class="modal-button confirm" onclick="manualCloudSync()" style="width: 100%;">
+            🔄 <strong>Синхронизировать сейчас</strong>
+          </button>
+          
+          <button class="modal-button" onclick="testCloudConnection()" style="width: 100%; background: #17a2b8; color: white;">
+            🧪 <strong>Проверить соединение</strong>
+          </button>
+          
+          <button class="modal-button danger" onclick="disconnectCloud()" style="width: 100%;">
+            🔌 <strong>Отключить облако</strong>
+          </button>
+        </div>
+      </div>
+      
+      <div class="modal-buttons" style="margin-top: 20px;">
+        <button class="modal-button cancel" onclick="closeModal('cloudSyncModal')">Закрыть</button>
+        <button class="modal-button" onclick="showSyncMenu()">📁 Файлы</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно настройки Firebase -->
+  <div id="firebaseSetupModal" class="modal">
+    <div class="modal-content">
+      <h3>🔥 Настройка Firebase</h3>
+      
+      <div style="margin-bottom: 15px; padding: 15px; background: #fff3cd; border-radius: 8px; font-size: 13px; color: #856404;">
+        <strong>📋 Пошаговая инструкция:</strong><br>
+        1. Откройте <a href="https://console.firebase.google.com" target="_blank" style="color: #856404;">console.firebase.google.com</a><br>
+        2. Создайте новый проект<br>
+        3. Database → Realtime Database → Создать<br>
+        4. Настройки проекта → Добавить приложение → Web<br>
+        5. Скопируйте настройки сюда
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 600;">API Key:</label>
+        <input type="text" id="firebaseApiKey" placeholder="AIzaSyC..." style="font-family: monospace; font-size: 14px;">
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Database URL:</label>
+        <input type="text" id="firebaseDatabaseURL" placeholder="https://your-project.firebaseio.com" style="font-family: monospace; font-size: 14px;">
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Project ID:</label>
+        <input type="text" id="firebaseProjectId" placeholder="your-project-id" style="font-family: monospace; font-size: 14px;">
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Ваш ID (любой уникальный):</label>
+        <input type="text" id="firebaseUserId" placeholder="my-dispatcher-123" style="font-family: monospace; font-size: 14px;">
+      </div>
+
+      <div class="modal-buttons">
+        <button class="modal-button cancel" onclick="closeModal('firebaseSetupModal')">Отмена</button>
+        <button class="modal-button confirm" onclick="saveFirebaseSettings()">🔥 Подключить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно настройки GitHub Gist -->
+  <div id="githubSetupModal" class="modal">
+    <div class="modal-content">
+      <h3>🐙 Настройка GitHub Gist</h3>
+      
+      <div style="margin-bottom: 15px; padding: 15px; background: #f6f8fa; border-radius: 8px; font-size: 13px; color: #24292e; border-left: 4px solid #0366d6;">
+        <strong>📋 Пошаговая инструкция:</strong><br>
+        1. Откройте <a href="https://github.com/settings/tokens" target="_blank" style="color: #0366d6;">github.com/settings/tokens</a><br>
+        2. Generate new token → Fine-grained tokens<br>
+        3. Выберите срок действия (например, 1 год)<br>
+        4. Repository access: All repositories<br>
+        5. Permissions: Contents (Read and write), Metadata (Read)<br>
+        6. Generate token и скопируйте сюда
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 600;">GitHub Personal Access Token:</label>
+        <input type="password" id="githubToken" placeholder="github_pat_11..." style="font-family: monospace; font-size: 14px;">
+        <div style="font-size: 12px; color: #666; margin-top: 5px;">
+          Токен нужен для создания и обновления Gist с вашими данными
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Существующий Gist ID (опционально):</label>
+        <input type="text" id="githubGistId" placeholder="оставьте пустым для создания нового" style="font-family: monospace; font-size: 14px;">
+        <div style="font-size: 12px; color: #666; margin-top: 5px;">
+          Если у вас уже есть Gist с данными, вставьте его ID
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
+          <input type="checkbox" id="githubPrivate" checked>
+          Приватный Gist
+        </label>
+        <div style="font-size: 12px; color: #666; margin-top: 5px;">
+          Рекомендуется: данные будут видны только вам
+        </div>
+      </div>
+
+      <div style="margin-bottom: 15px; padding: 10px; background: #d1ecf1; border-radius: 8px; font-size: 12px; color: #0c5460;">
+        💡 <strong>Преимущества GitHub Gist:</strong><br>
+        • История изменений (версионность)<br>
+        • Надежность GitHub<br>
+        • Возможность просмотра в браузере<br>
+        • Автоматическое резервное копирование
+      </div>
+
+      <div class="modal-buttons">
+        <button class="modal-button cancel" onclick="closeModal('githubSetupModal')">Отмена</button>
+        <button class="modal-button" onclick="saveGitHubSettings()" style="background: #24292e; color: white;">🐙 Подключить</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Глобальные переменные
     let currentSheet = '';
