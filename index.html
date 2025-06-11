@@ -77,6 +77,11 @@
       cursor: pointer;
     }
     
+    .big-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
     .big-button:active {
       transform: scale(0.98);
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -110,6 +115,7 @@
     /* Таблица заданий */
     .tasks-container {
       padding: 15px;
+      min-height: 200px;
     }
     
     .task-card {
@@ -279,8 +285,14 @@
       cursor: pointer;
     }
     
-    .secondary-button:active {
+    .secondary-button:hover {
       background: #f8f9fa;
+      transform: translateY(-1px);
+    }
+    
+    .secondary-button:active {
+      background: #f0f0f0;
+      transform: translateY(0);
     }
     
     /* Статус сообщения */
@@ -295,14 +307,20 @@
       box-shadow: 0 4px 15px rgba(0,0,0,0.1);
       font-size: 16px;
       z-index: 1001;
-      animation: fadeInOut 3s ease-in-out;
       display: none;
+      max-width: 90%;
+      text-align: center;
     }
 
-    @keyframes fadeInOut {
+    .status.show {
+      display: block;
+      animation: statusFade 3s ease-in-out forwards;
+    }
+
+    @keyframes statusFade {
       0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-      20% { opacity: 1; transform: translateX(-50%) translateY(0); }
-      80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      85% { opacity: 1; transform: translateX(-50%) translateY(0); }
       100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
     }
     
@@ -331,6 +349,10 @@
       padding: 20px;
     }
     
+    .modal.show {
+      display: flex;
+    }
+    
     .modal-content {
       background: white;
       border-radius: 20px;
@@ -338,6 +360,18 @@
       width: 100%;
       max-width: 400px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      animation: modalSlide 0.3s ease-out;
+    }
+
+    @keyframes modalSlide {
+      from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
     }
     
     .modal h3 {
@@ -377,6 +411,10 @@
       cursor: pointer;
     }
     
+    .modal-button:hover {
+      transform: translateY(-1px);
+    }
+    
     .modal-button.cancel {
       background: #f0f0f0;
       color: #666;
@@ -387,14 +425,43 @@
       color: white;
     }
     
+    .modal-button.danger {
+      background: #f56565;
+      color: white;
+    }
+    
     /* Скрытый input для файлов */
     .hidden-input {
       display: none;
     }
+
+    /* Анимация shake */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    .shake {
+      animation: shake 0.5s ease-in-out;
+    }
+    
+    /* Пустое состояние */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #666;
+    }
+    
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+      opacity: 0.5;
+    }
     
     @media (min-width: 768px) {
       .main-actions {
-        grid-template-columns: repeat(6, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         max-width: 800px;
         margin: 0 auto;
       }
@@ -417,7 +484,7 @@
     <h1>📋 Диспетчер грузоперевозок</h1>
     <div class="date-selector">
       <select id="sheetSelector" onchange="loadSheet()">
-        <option value="_new">➕ Создать новую дату</option>
+        <option value="">Загрузка...</option>
       </select>
     </div>
   </div>
@@ -442,7 +509,10 @@
   </div>
   
   <div class="tasks-container" id="tasksContainer">
-    <!-- Здесь будут карточки заданий -->
+    <div class="empty-state">
+      <div class="icon">📋</div>
+      <div>Загрузка данных...</div>
+    </div>
   </div>
   
   <div class="more-actions">
@@ -458,11 +528,11 @@
   <!-- Скрытый input для импорта файлов -->
   <input type="file" id="fileInput" class="hidden-input" accept=".json" onchange="handleFileImport(event)">
   
-  <!-- Модальное окно создания листа -->
+  <!-- Модальные окна -->
   <div id="createModal" class="modal">
     <div class="modal-content">
       <h3>📅 Новая дата</h3>
-      <input type="text" id="newSheetName" placeholder="Например: 07.06.2024">
+      <input type="text" id="newSheetName" placeholder="Например: 12.06.2025">
       <div class="modal-buttons">
         <button class="modal-button cancel" onclick="closeModal('createModal')">Отмена</button>
         <button class="modal-button confirm" onclick="createNewSheet()">Создать</button>
@@ -470,7 +540,6 @@
     </div>
   </div>
   
-  <!-- Модальное окно переименования -->
   <div id="renameModal" class="modal">
     <div class="modal-content">
       <h3>✏️ Переименовать</h3>
@@ -482,24 +551,22 @@
     </div>
   </div>
   
-  <!-- Модальное окно удаления -->
   <div id="deleteModal" class="modal">
     <div class="modal-content">
       <h3>🗑️ Удалить лист?</h3>
       <p id="deleteText" style="margin: 20px 0; text-align: center; color: #666;"></p>
       <div class="modal-buttons">
         <button class="modal-button cancel" onclick="closeModal('deleteModal')">Отмена</button>
-        <button class="modal-button confirm" style="background: #f56565;" onclick="confirmDelete()">Удалить</button>
+        <button class="modal-button danger" onclick="confirmDelete()">Удалить</button>
       </div>
     </div>
   </div>
   
-  <!-- Модальное окно управления -->
   <div id="manageModal" class="modal">
     <div class="modal-content">
       <h3>⚙️ Управление листами</h3>
-      <button class="modal-button" onclick="closeModal('manageModal'); showRenameDialog();" style="width: 100%; margin-bottom: 10px;">✏️ Переименовать лист</button>
-      <button class="modal-button" onclick="closeModal('manageModal'); showDeleteDialog();" style="width: 100%; background: #f56565; color: white;">🗑️ Удалить лист</button>
+      <button class="modal-button" onclick="closeModal('manageModal'); showRenameDialog();" style="width: 100%; margin-bottom: 10px; background: #667eea; color: white;">✏️ Переименовать лист</button>
+      <button class="modal-button danger" onclick="closeModal('manageModal'); showDeleteDialog();" style="width: 100%; margin-bottom: 10px;">🗑️ Удалить лист</button>
       <div class="modal-buttons" style="margin-top: 20px;">
         <button class="modal-button cancel" onclick="closeModal('manageModal')">Закрыть</button>
       </div>
@@ -510,9 +577,13 @@
     // Глобальные переменные
     let currentSheet = '';
     let selectedTasks = new Set();
-    let tasksData = []; // Массив объектов с машинами и заказами
-    let allSheets = {}; // Все листы в памяти
-    
+    let tasksData = [];
+    let allSheets = {};
+
+    // Константы
+    const STORAGE_KEY = 'cargoDispatcher';
+    const VERSION = '1.0';
+
     // Шаблоны для быстрого заполнения
     const templates = {
       machines: ['107', '486', '513', '444', '284', '295', '689', '986', '795', 'лагуна'],
@@ -535,101 +606,154 @@
         'ООО ДМС'
       ]
     };
-    
+
+    // Утилиты
+    function logError(message, error) {
+      console.error(`[Cargo Dispatcher] ${message}:`, error);
+    }
+
+    function logInfo(message) {
+      console.log(`[Cargo Dispatcher] ${message}`);
+    }
+
+    // Функции localStorage
+    function saveToStorage() {
+      try {
+        const data = {
+          version: VERSION,
+          sheets: allSheets,
+          lastSaved: new Date().toISOString()
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        logInfo('Данные сохранены в localStorage');
+        return true;
+      } catch (error) {
+        logError('Ошибка сохранения', error);
+        showStatus('Ошибка сохранения данных', 'error');
+        return false;
+      }
+    }
+
+    function loadFromStorage() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const data = JSON.parse(saved);
+          if (data.sheets) {
+            allSheets = data.sheets;
+            logInfo('Данные загружены из localStorage');
+            return true;
+          }
+        }
+        return false;
+      } catch (error) {
+        logError('Ошибка загрузки', error);
+        return false;
+      }
+    }
+
+    function createInitialData() {
+      const today = new Date().toLocaleDateString('ru-RU');
+      allSheets = {
+        [today]: [
+          {
+            machines: '107',
+            orders: [{
+              cargo: 'песок',
+              from: 'селычка',
+              to: 'завьялово', 
+              customer: 'ООО Союзпромсирой',
+              note: 'пример заказа'
+            }]
+          }
+        ]
+      };
+      currentSheet = today;
+      tasksData = [...allSheets[currentSheet]];
+      logInfo('Созданы начальные данные');
+    }
+
     // Инициализация
-    document.addEventListener('DOMContentLoaded', () => {
-      loadFromMemory();
+    function init() {
+      logInfo('Инициализация приложения...');
+      
+      // Загружаем данные
+      if (!loadFromStorage()) {
+        createInitialData();
+        saveToStorage();
+      } else {
+        // Выбираем последний лист
+        const sheets = Object.keys(allSheets).sort().reverse();
+        if (sheets.length > 0) {
+          currentSheet = sheets[0];
+          tasksData = [...allSheets[currentSheet]];
+        } else {
+          createInitialData();
+        }
+      }
+
+      updateSheetSelector();
+      renderTasks();
       setupEventListeners();
       
-      // Создаем первый лист если нет данных
-      if (Object.keys(allSheets).length === 0) {
-        const today = new Date().toLocaleDateString('ru-RU');
-        allSheets[today] = [];
-        currentSheet = today;
-        updateSheetSelector();
-        loadSheet();
-      }
-    });
-    
+      // Автосохранение каждые 30 секунд
+      setInterval(() => {
+        if (currentSheet && allSheets[currentSheet]) {
+          allSheets[currentSheet] = [...tasksData];
+          saveToStorage();
+        }
+      }, 30000);
+
+      logInfo('Приложение инициализировано');
+    }
+
     // Настройка обработчиков событий
     function setupEventListeners() {
       // Закрытие модалок по клику вне
       document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', (e) => {
           if (e.target === modal) {
-            modal.style.display = 'none';
+            closeModal(modal.id);
           }
         });
       });
-      
-      // Автосохранение каждые 30 секунд
-      setInterval(saveToMemory, 30000);
-      
+
       // Сохранение при закрытии страницы
-      window.addEventListener('beforeunload', saveToMemory);
-    }
-    
-    // Сохранение в память браузера
-    function saveToMemory() {
-      try {
-        localStorage.setItem('cargoDispatcher', JSON.stringify(allSheets));
-        console.log('Данные сохранены в браузер');
-      } catch (error) {
-        console.error('Ошибка сохранения:', error);
-      }
-    }
-    
-    // Загрузка из памяти браузера
-    function loadFromMemory() {
-      try {
-        const saved = localStorage.getItem('cargoDispatcher');
-        if (saved) {
-          allSheets = JSON.parse(saved);
-          updateSheetSelector();
-          
-          // Выбираем последний лист
-          const sheets = Object.keys(allSheets);
-          if (sheets.length > 0) {
-            currentSheet = sheets[0];
-            tasksData = [...allSheets[currentSheet]];
-          }
-        } else {
-          // Создаем первый лист если нет данных
-          const today = new Date().toLocaleDateString('ru-RU');
-          allSheets[today] = [
-            {
-              machines: '107',
-              orders: [{
-                cargo: 'песок',
-                from: 'селычка', 
-                to: 'завьялово',
-                customer: 'ООО Союзпромсирой',
-                note: 'первая поездка (пример)'
-              }]
-            }
-          ];
-          currentSheet = today;
-          updateSheetSelector();
+      window.addEventListener('beforeunload', () => {
+        if (currentSheet) {
+          allSheets[currentSheet] = [...tasksData];
+          saveToStorage();
         }
-      } catch (error) {
-        console.error('Ошибка загрузки:', error);
-        // Fallback - создаем пустой лист
-        const today = new Date().toLocaleDateString('ru-RU');
-        allSheets[today] = [];
-        currentSheet = today;
-        updateSheetSelector();
-      }
+      });
+
+      // Обработка клавиш
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          switch(e.key) {
+            case 's':
+              e.preventDefault();
+              saveData();
+              break;
+            case 'n':
+              e.preventDefault();
+              addNewTask();
+              break;
+          }
+        }
+      });
     }
-    
+
     // Обновление селектора листов
     function updateSheetSelector() {
       const selector = document.getElementById('sheetSelector');
-      const sheets = Object.keys(allSheets).sort().reverse(); // Новые даты сверху
+      const sheets = Object.keys(allSheets).sort().reverse();
       
       selector.innerHTML = '<option value="_new">➕ Создать новую дату</option>' +
-        sheets.map(sheet => `<option value="${sheet}" ${sheet === currentSheet ? 'selected' : ''}>${sheet}</option>`).join('');
+        sheets.map(sheet => 
+          `<option value="${sheet}" ${sheet === currentSheet ? 'selected' : ''}>${sheet}</option>`
+        ).join('');
     }
-    
+
     // Загрузка данных листа
     function loadSheet() {
       const sheetName = document.getElementById('sheetSelector').value;
@@ -642,30 +766,41 @@
       
       if (!sheetName || !allSheets[sheetName]) return;
       
+      // Сохраняем текущие данные
+      if (currentSheet && allSheets[currentSheet]) {
+        allSheets[currentSheet] = [...tasksData];
+      }
+      
       currentSheet = sheetName;
-      tasksData = [...allSheets[currentSheet]]; // Копируем данные
+      tasksData = [...allSheets[currentSheet]];
       renderTasks();
-      showStatus('Лист загружен', 'success');
+      saveToStorage();
+      showStatus(`Загружен лист: ${sheetName}`, 'success');
     }
-    
+
     // Отрисовка заданий
     function renderTasks() {
       const container = document.getElementById('tasksContainer');
       container.innerHTML = '';
       selectedTasks.clear();
       
+      if (tasksData.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">📋</div>
+            <div>Нет заданий. Добавьте новый заказ!</div>
+          </div>
+        `;
+        return;
+      }
+      
       tasksData.forEach((task, index) => {
-        if (!task.machines && task.orders.every(o => !o.cargo && !o.from && !o.to && !o.customer)) return;
-        
+        // Показываем даже пустые карточки для редактирования
         const taskCard = createTaskCard(task, index);
         container.appendChild(taskCard);
       });
-      
-      if (tasksData.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Нет заданий. Добавьте новый заказ!</div>';
-      }
     }
-    
+
     // Создание карточки задания
     function createTaskCard(taskData, index) {
       const card = document.createElement('div');
@@ -688,7 +823,8 @@
           <div class="sub-order" data-order-index="${orderIndex}">
             <div class="sub-order-header">
               <span>Заказ ${orderIndex + 1}</span>
-              ${taskData.orders.length > 1 ? `<button class="remove-sub-order" onclick="removeSubOrder(${index}, ${orderIndex})">×</button>` : ''}
+              ${taskData.orders.length > 1 ? 
+                `<button class="remove-sub-order" onclick="removeSubOrder(${index}, ${orderIndex})">×</button>` : ''}
             </div>
             <div class="task-detail">
               <span class="label">📦 Груз:</span>
@@ -724,27 +860,35 @@
       // Обработчики изменений
       card.querySelectorAll('[contenteditable]').forEach(elem => {
         elem.addEventListener('input', () => updateTaskData(index, elem));
-        elem.addEventListener('blur', saveToMemory); // Автосохранение при потере фокуса
+        elem.addEventListener('blur', () => {
+          // Автосохранение при потере фокуса
+          allSheets[currentSheet] = [...tasksData];
+          saveToStorage();
+        });
       });
       
       return card;
     }
-    
+
     // Обновление данных задания
     function updateTaskData(index, element) {
+      if (!tasksData[index]) return;
+      
       const field = element.dataset.field;
       const orderIndex = element.dataset.order;
       const value = element.textContent.trim();
       
       if (field === 'machines') {
         tasksData[index].machines = value;
-      } else if (orderIndex !== undefined) {
+      } else if (orderIndex !== undefined && tasksData[index].orders[orderIndex]) {
         tasksData[index].orders[orderIndex][field] = value;
       }
     }
-    
+
     // Добавить подзаказ
     function addSubOrder(taskIndex) {
+      if (!tasksData[taskIndex]) return;
+      
       tasksData[taskIndex].orders.push({
         cargo: '',
         from: '',
@@ -752,29 +896,40 @@
         customer: '',
         note: ''
       });
+      
       renderTasks();
       
       setTimeout(() => {
         const card = document.querySelector(`.task-card[data-index="${taskIndex}"]`);
-        const newOrder = card.querySelector('.sub-order:last-child');
-        newOrder.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        newOrder.querySelector('[data-field="cargo"]').focus();
+        if (card) {
+          const newOrder = card.querySelector('.sub-order:last-child');
+          if (newOrder) {
+            newOrder.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const firstInput = newOrder.querySelector('[data-field="cargo"]');
+            if (firstInput) firstInput.focus();
+          }
+        }
       }, 100);
     }
-    
+
     // Удалить подзаказ
     function removeSubOrder(taskIndex, orderIndex) {
-      if (tasksData[taskIndex].orders.length > 1) {
-        tasksData[taskIndex].orders.splice(orderIndex, 1);
-        renderTasks();
-        showStatus('Заказ удален', 'success');
-        saveToMemory();
-      }
+      if (!tasksData[taskIndex] || tasksData[taskIndex].orders.length <= 1) return;
+      
+      tasksData[taskIndex].orders.splice(orderIndex, 1);
+      renderTasks();
+      showStatus('Заказ удален', 'success');
+      
+      // Сохраняем изменения
+      allSheets[currentSheet] = [...tasksData];
+      saveToStorage();
     }
-    
+
     // Переключение выделения
     function toggleSelection(index) {
       const card = document.querySelector(`.task-card[data-index="${index}"]`);
+      if (!card) return;
+      
       if (selectedTasks.has(index)) {
         selectedTasks.delete(index);
         card.classList.remove('selected');
@@ -783,7 +938,7 @@
         card.classList.add('selected');
       }
     }
-    
+
     // Добавление нового задания
     function addNewTask() {
       const newTask = {
@@ -796,18 +951,24 @@
           note: ''
         }]
       };
+      
       tasksData.push(newTask);
       renderTasks();
       
       setTimeout(() => {
         const newCard = document.querySelector(`.task-card[data-index="${tasksData.length - 1}"]`);
         if (newCard) {
-          newCard.querySelector('[data-field="machines"]').focus();
-          newCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const machineInput = newCard.querySelector('[data-field="machines"]');
+          if (machineInput) {
+            machineInput.focus();
+            newCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
         }
       }, 100);
+      
+      showStatus('Добавлен новый заказ', 'success');
     }
-    
+
     // Дублировать выбранные задания
     function duplicateSelected() {
       if (selectedTasks.size === 0) {
@@ -817,19 +978,24 @@
       
       const indices = Array.from(selectedTasks).sort((a, b) => b - a);
       indices.forEach(index => {
-        const original = tasksData[index];
-        const duplicate = {
-          machines: '',
-          orders: original.orders.map(order => ({...order}))
-        };
-        tasksData.splice(index + 1, 0, duplicate);
+        if (tasksData[index]) {
+          const original = tasksData[index];
+          const duplicate = {
+            machines: '',
+            orders: original.orders.map(order => ({...order}))
+          };
+          tasksData.splice(index + 1, 0, duplicate);
+        }
       });
       
       renderTasks();
       showStatus(`Продублировано заданий: ${indices.length}`, 'success');
-      saveToMemory();
+      
+      // Сохраняем изменения
+      allSheets[currentSheet] = [...tasksData];
+      saveToStorage();
     }
-    
+
     // Удалить выбранные задания
     function deleteSelected() {
       if (selectedTasks.size === 0) {
@@ -843,59 +1009,79 @@
       
       const indices = Array.from(selectedTasks).sort((a, b) => b - a);
       indices.forEach(index => {
-        tasksData.splice(index, 1);
+        if (tasksData[index]) {
+          tasksData.splice(index, 1);
+        }
       });
       
       renderTasks();
       showStatus('Задания удалены', 'success');
-      saveToMemory();
+      
+      // Сохраняем изменения
+      allSheets[currentSheet] = [...tasksData];
+      saveToStorage();
     }
-    
+
     // Сохранение данных
     function saveData() {
       // Проверка на пустые машины
-      const emptyMachines = tasksData.filter(t => !t.machines && t.orders.some(o => o.cargo || o.from || o.to || o.customer));
+      const emptyMachines = tasksData.filter(t => 
+        !t.machines && t.orders.some(o => o.cargo || o.from || o.to || o.customer)
+      );
+      
       if (emptyMachines.length > 0) {
         showStatus('❌ Заполните номера машин во всех заказах!', 'error');
+        
+        // Подсветить пустые поля
         document.querySelectorAll('.machine-name').forEach(el => {
           if (!el.textContent.trim()) {
-            el.style.animation = 'shake 0.5s';
-            setTimeout(() => el.style.animation = '', 500);
+            el.classList.add('shake');
+            setTimeout(() => el.classList.remove('shake'), 500);
           }
         });
         return;
       }
       
-      // Сохраняем в allSheets
+      // Сохраняем данные
       allSheets[currentSheet] = [...tasksData];
-      saveToMemory();
-      showStatus('Данные сохранены!', 'success');
+      
+      if (saveToStorage()) {
+        showStatus('✅ Данные сохранены!', 'success');
+      }
     }
-    
+
     // Экспорт данных
     function exportData() {
-      const data = {
-        sheets: allSheets,
-        exportDate: new Date().toISOString(),
-        version: '1.0'
-      };
-      
-      const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `cargo-dispatcher-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      
-      showStatus('Данные экспортированы!', 'success');
+      try {
+        const data = {
+          version: VERSION,
+          sheets: allSheets,
+          exportDate: new Date().toISOString(),
+          currentSheet: currentSheet
+        };
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cargo-dispatcher-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showStatus('✅ Данные экспортированы!', 'success');
+      } catch (error) {
+        logError('Ошибка экспорта', error);
+        showStatus('Ошибка экспорта данных', 'error');
+      }
     }
-    
+
     // Импорт данных
     function importData() {
       document.getElementById('fileInput').click();
     }
-    
+
     // Обработка импорта файла
     function handleFileImport(event) {
       const file = event.target.files[0];
@@ -905,53 +1091,82 @@
       reader.onload = function(e) {
         try {
           const data = JSON.parse(e.target.result);
-          if (data.sheets) {
-            if (confirm('Импортировать данные? Текущие данные будут заменены.')) {
-              allSheets = data.sheets;
-              const sheets = Object.keys(allSheets);
-              if (sheets.length > 0) {
-                currentSheet = sheets[0];
-                tasksData = [...allSheets[currentSheet]];
-              }
-              updateSheetSelector();
-              renderTasks();
-              saveToMemory();
-              showStatus('Данные импортированы!', 'success');
-            }
-          } else {
+          
+          if (!data.sheets) {
             throw new Error('Неверный формат файла');
           }
+          
+          if (confirm('Импортировать данные? Текущие данные будут заменены.')) {
+            allSheets = data.sheets;
+            
+            const sheets = Object.keys(allSheets);
+            if (sheets.length > 0) {
+              currentSheet = data.currentSheet || sheets[0];
+              tasksData = [...(allSheets[currentSheet] || [])];
+            } else {
+              createInitialData();
+            }
+            
+            updateSheetSelector();
+            renderTasks();
+            saveToStorage();
+            showStatus('✅ Данные импортированы!', 'success');
+          }
         } catch (error) {
-          showStatus('Ошибка импорта: ' + error.message, 'error');
+          logError('Ошибка импорта', error);
+          showStatus('Ошибка импорта: неверный формат файла', 'error');
         }
+        
+        // Очищаем input
+        event.target.value = '';
       };
+      
       reader.readAsText(file);
     }
-    
+
     // Копирование в буфер обмена
     function copyToClipboard() {
       const message = formatForClipboard();
       
-      navigator.clipboard.writeText(message)
-        .then(() => showStatus('Скопировано!', 'success'))
-        .catch(() => {
-          const textarea = document.createElement('textarea');
-          textarea.value = message;
-          document.body.appendChild(textarea);
-          textarea.select();
-          document.execCommand('copy');
-          document.body.removeChild(textarea);
-          showStatus('Скопировано!', 'success');
-        });
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(message)
+          .then(() => showStatus('✅ Скопировано!', 'success'))
+          .catch(() => fallbackCopy(message));
+      } else {
+        fallbackCopy(message);
+      }
     }
-    
+
+    function fallbackCopy(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      
+      try {
+        document.execCommand('copy');
+        showStatus('✅ Скопировано!', 'success');
+      } catch (error) {
+        showStatus('Ошибка копирования', 'error');
+      }
+      
+      document.body.removeChild(textarea);
+    }
+
     // Форматирование для буфера обмена
     function formatForClipboard() {
       let message = `📅 ${currentSheet}\n\n`;
       
-      tasksData.forEach((task, taskIndex) => {
-        if (!task.machines) return;
-        
+      const activeTasks = tasksData.filter(task => task.machines);
+      
+      if (activeTasks.length === 0) {
+        message += 'Нет заданий на эту дату.\n';
+        return message;
+      }
+      
+      activeTasks.forEach((task, taskIndex) => {
         message += `🚛 ${task.machines}\n`;
         
         task.orders.forEach((order, orderIndex) => {
@@ -976,30 +1191,35 @@
       
       return message.trim();
     }
-    
-    // Показать диалог управления
+
+    // Модальные окна
+    function showModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.add('show');
+        const input = modal.querySelector('input');
+        if (input) {
+          input.value = '';
+          setTimeout(() => input.focus(), 300);
+        }
+      }
+    }
+
+    function closeModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.remove('show');
+      }
+    }
+
+    // Управление листами
     function showManageDialog() {
       showModal('manageModal');
     }
-    
-    // Показать модальное окно
-    function showModal(modalId) {
-      document.getElementById(modalId).style.display = 'flex';
-      const input = document.querySelector(`#${modalId} input`);
-      if (input) {
-        input.value = '';
-        setTimeout(() => input.focus(), 100);
-      }
-    }
-    
-    // Закрыть модальное окно
-    function closeModal(modalId) {
-      document.getElementById(modalId).style.display = 'none';
-    }
-    
-    // Создать новый лист
+
     function createNewSheet() {
       const name = document.getElementById('newSheetName').value.trim();
+      
       if (!name) {
         showStatus('Введите название', 'error');
         return;
@@ -1010,6 +1230,12 @@
         return;
       }
       
+      // Сохраняем текущие данные
+      if (currentSheet) {
+        allSheets[currentSheet] = [...tasksData];
+      }
+      
+      // Создаем новый лист
       allSheets[name] = [];
       currentSheet = name;
       tasksData = [];
@@ -1017,11 +1243,10 @@
       updateSheetSelector();
       renderTasks();
       closeModal('createModal');
-      saveToMemory();
-      showStatus('Лист создан', 'success');
+      saveToStorage();
+      showStatus(`✅ Лист "${name}" создан`, 'success');
     }
-    
-    // Показать диалог переименования
+
     function showRenameDialog() {
       if (!currentSheet) return;
       
@@ -1029,10 +1254,10 @@
       input.value = currentSheet;
       showModal('renameModal');
     }
-    
-    // Подтвердить переименование
+
     function confirmRename() {
       const newName = document.getElementById('renameInput').value.trim();
+      
       if (!newName || newName === currentSheet) {
         closeModal('renameModal');
         return;
@@ -1043,67 +1268,74 @@
         return;
       }
       
+      // Переименовываем лист
       allSheets[newName] = allSheets[currentSheet];
       delete allSheets[currentSheet];
       currentSheet = newName;
       
       updateSheetSelector();
       closeModal('renameModal');
-      saveToMemory();
-      showStatus('Переименовано', 'success');
+      saveToStorage();
+      showStatus(`✅ Лист переименован в "${newName}"`, 'success');
     }
-    
-    // Показать диалог удаления
+
     function showDeleteDialog() {
       if (!currentSheet) return;
       
       document.getElementById('deleteText').textContent = `Удалить лист "${currentSheet}"?`;
       showModal('deleteModal');
     }
-    
-    // Подтвердить удаление
+
     function confirmDelete() {
       if (Object.keys(allSheets).length === 1) {
         showStatus('Нельзя удалить последний лист', 'error');
+        closeModal('deleteModal');
         return;
       }
       
       delete allSheets[currentSheet];
-      const sheets = Object.keys(allSheets);
+      
+      const sheets = Object.keys(allSheets).sort().reverse();
       currentSheet = sheets[0] || '';
       tasksData = currentSheet ? [...allSheets[currentSheet]] : [];
       
       updateSheetSelector();
       renderTasks();
       closeModal('deleteModal');
-      saveToMemory();
-      showStatus('Лист удален', 'success');
+      saveToStorage();
+      showStatus('✅ Лист удален', 'success');
     }
-    
+
     // Показать статус
     function showStatus(message, type = '') {
       const status = document.getElementById('status');
       status.textContent = message;
       status.className = 'status ' + type;
-      status.style.display = 'block';
+      status.classList.add('show');
       
-      if (type) {
-        setTimeout(() => {
-          status.style.display = 'none';
-        }, 3000);
-      }
+      // Автоматически скрываем через 3 секунды
+      setTimeout(() => {
+        status.classList.remove('show');
+      }, 3000);
     }
 
-    // Добавляем стиль для анимации shake
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes shake {
-        0%, 100% { transform: translateX(0); }
-        25% { transform: translateX(-5px); }
-        75% { transform: translateX(5px); }
+    // Запуск приложения
+    document.addEventListener('DOMContentLoaded', init);
+
+    // Отладочные функции (можно удалить в продакшене)
+    window.debugApp = {
+      getAllData: () => allSheets,
+      getCurrentData: () => tasksData,
+      clearAll: () => {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+      },
+      exportDebug: () => {
+        console.log('All sheets:', allSheets);
+        console.log('Current sheet:', currentSheet);
+        console.log('Current tasks:', tasksData);
       }
-    `;
-    document.head.appendChild(style);
+    };
   </script>
 </body>
 </html>
