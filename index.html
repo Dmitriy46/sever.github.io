@@ -768,6 +768,69 @@
     const GITHUB_SETTINGS_KEY = 'cargoDispatcherGitHub';
     const VERSION = '1.0';
 
+    // Безопасные функции localStorage с fallback
+    let memoryStorage = {}; // Fallback хранилище в памяти
+    let isLocalStorageAvailable = false;
+
+    function checkLocalStorage() {
+      try {
+        const test = 'test';
+        localStorage.setItem(test, test);
+        localStorage.removeItem(test);
+        isLocalStorageAvailable = true;
+        logInfo('localStorage доступен');
+        return true;
+      } catch (error) {
+        isLocalStorageAvailable = false;
+        logError('localStorage недоступен, используем память', error);
+        showStatus('⚠️ Данные сохраняются только в сессии (localStorage недоступен)', 'error');
+        return false;
+      }
+    }
+
+    function safeSetItem(key, value) {
+      try {
+        if (isLocalStorageAvailable) {
+          localStorage.setItem(key, value);
+        } else {
+          memoryStorage[key] = value;
+        }
+        return true;
+      } catch (error) {
+        logError('Ошибка сохранения', error);
+        memoryStorage[key] = value; // Fallback
+        return false;
+      }
+    }
+
+    function safeGetItem(key) {
+      try {
+        if (isLocalStorageAvailable) {
+          return localStorage.getItem(key);
+        } else {
+          return memoryStorage[key] || null;
+        }
+      } catch (error) {
+        logError('Ошибка загрузки', error);
+        return memoryStorage[key] || null;
+      }
+    }
+
+    function safeRemoveItem(key) {
+      try {
+        if (isLocalStorageAvailable) {
+          localStorage.removeItem(key);
+        } else {
+          delete memoryStorage[key];
+        }
+        return true;
+      } catch (error) {
+        logError('Ошибка удаления', error);
+        delete memoryStorage[key]; // Fallback
+        return false;
+      }
+    }
+
     // Настройки Telegram (будут загружены из localStorage)
     let telegramSettings = {
       botToken: '',
@@ -1038,7 +1101,7 @@
         }
 
         lastGitHubSync = Date.now();
-        localStorage.setItem(STORAGE_KEY + '_githubLastSync', lastGitHubSync.toString());
+        safeSetItem(STORAGE_KEY + '_githubLastSync', lastGitHubSync.toString());
 
         logInfo('Данные синхронизированы в GitHub Gist: ' + result.html_url);
         showStatus('🐙 Синхронизировано с GitHub!', 'success');
@@ -1082,7 +1145,7 @@
         const cloudData = JSON.parse(fileContent.content);
         
         // Проверяем нужно ли синхронизироваться
-        const localLastSync = parseInt(localStorage.getItem(STORAGE_KEY + '_githubLastSync') || '0');
+        const localLastSync = parseInt(safeGetItem(STORAGE_KEY + '_githubLastSync') || '0');
         const cloudLastModified = cloudData.lastModified || 0;
         
         if (cloudLastModified > localLastSync) {
@@ -1115,7 +1178,7 @@
             saveToStorage();
             
             lastGitHubSync = cloudData.lastModified;
-            localStorage.setItem(STORAGE_KEY + '_githubLastSync', lastGitHubSync.toString());
+            safeSetItem(STORAGE_KEY + '_githubLastSync', lastGitHubSync.toString());
             
             showStatus(`🐙 Синхронизировано с ${device}`, 'success');
             logInfo('Данные синхронизированы из GitHub Gist');
@@ -1201,7 +1264,7 @@
           const cloudData = snapshot.val();
           if (cloudData && cloudData.lastModified && !syncInProgress) {
             // Проверяем нужно ли синхронизироваться
-            const localLastModified = localStorage.getItem(STORAGE_KEY + '_lastModified') || '0';
+            const localLastModified = safeGetItem(STORAGE_KEY + '_lastModified') || '0';
             if (cloudData.lastModified > localLastModified) {
               syncFromCloud(cloudData);
             }
@@ -1242,7 +1305,7 @@
         await firebaseDB.ref(`users/${firebaseSettings.userId}`).set(dataToSync);
         
         // Сохраняем время последней модификации локально
-        localStorage.setItem(STORAGE_KEY + '_lastModified', dataToSync.lastModified.toString());
+        safeSetItem(STORAGE_KEY + '_lastModified', dataToSync.lastModified.toString());
         
         logInfo('Данные синхронизированы в облако');
         showStatus('☁️ Синхронизировано в облако', 'success');
@@ -1290,7 +1353,7 @@
           saveToStorage();
           
           // Сохраняем время последней модификации
-          localStorage.setItem(STORAGE_KEY + '_lastModified', cloudData.lastModified.toString());
+          safeSetItem(STORAGE_KEY + '_lastModified', cloudData.lastModified.toString());
           
           showStatus(`☁️ Синхронизировано с ${device}`, 'success');
           logInfo('Данные синхронизированы из облака');
@@ -1359,13 +1422,26 @@
 
     // UI функции для облака
     function showCloudSync() {
-      // Проверяем что элементы существуют
+      // Детальная диагностика элементов
+      const modal = document.getElementById('cloudSyncModal');
       const notConfigured = document.getElementById('cloudNotConfigured');
       const configured = document.getElementById('cloudConfigured');
       
-      if (!notConfigured || !configured) {
-        logError('Модальные элементы облака не найдены');
-        showStatus('Ошибка интерфейса. Перезагрузите страницу.', 'error');
+      if (!modal) {
+        logError('Модальное окно cloudSyncModal не найдено');
+        showStatus('Ошибка: модальное окно не найдено. Обновите страницу.', 'error');
+        return;
+      }
+      
+      if (!notConfigured) {
+        logError('Элемент cloudNotConfigured не найден');
+        showStatus('Ошибка: элемент настройки не найден. Обновите страницу.', 'error');
+        return;
+      }
+      
+      if (!configured) {
+        logError('Элемент cloudConfigured не найден');
+        showStatus('Ошибка: элемент статуса не найден. Обновите страницу.', 'error');
         return;
       }
       
@@ -1666,6 +1742,9 @@
     function init() {
       logInfo('Инициализация приложения...');
       
+      // Проверяем доступность localStorage
+      checkLocalStorage();
+      
       // Загружаем данные
       if (!loadFromStorage()) {
         createInitialData();
@@ -1702,7 +1781,11 @@
       updateSheetSelector();
       renderTasks();
       setupEventListeners();
-      updateCloudStatus();
+      
+      // Обновляем статус облака после загрузки DOM
+      setTimeout(() => {
+        updateCloudStatus();
+      }, 100);
       
       // Автосохранение каждые 30 секунд + синхронизация в облако
       setInterval(() => {
@@ -2594,12 +2677,12 @@ ${compressedData}`;
       }
       
       try {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(TELEGRAM_SETTINGS_KEY);
-        localStorage.removeItem(FIREBASE_SETTINGS_KEY);
-        localStorage.removeItem(GITHUB_SETTINGS_KEY);
-        localStorage.removeItem(STORAGE_KEY + '_lastModified');
-        localStorage.removeItem(STORAGE_KEY + '_githubLastSync');
+        safeRemoveItem(STORAGE_KEY);
+        safeRemoveItem(TELEGRAM_SETTINGS_KEY);
+        safeRemoveItem(FIREBASE_SETTINGS_KEY);
+        safeRemoveItem(GITHUB_SETTINGS_KEY);
+        safeRemoveItem(STORAGE_KEY + '_lastModified');
+        safeRemoveItem(STORAGE_KEY + '_githubLastSync');
         
         allSheets = {};
         tasksData = [];
@@ -2875,6 +2958,49 @@ ${compressedData}`;
         console.log('GitHub Gist настроен! Тестируем подключение...');
         testGitHubConnection();
       },
+      diagnoseDOM: () => {
+        console.log('Диагностика DOM элементов:');
+        const elements = [
+          'cloudSyncModal',
+          'cloudNotConfigured', 
+          'cloudConfigured',
+          'cloudType',
+          'cloudUser',
+          'cloudConnectionStatus',
+          'cloudStatusIcon',
+          'cloudStatusText',
+          'cloudGistInfo'
+        ];
+        
+        elements.forEach(id => {
+          const el = document.getElementById(id);
+          console.log(`${id}: ${el ? '✅ найден' : '❌ НЕ НАЙДЕН'}`);
+        });
+        
+        console.log('Все модальные окна:', document.querySelectorAll('.modal').length);
+      },
+      fixCloudButton: () => {
+        console.log('Попытка исправить кнопку облака...');
+        const btn = document.getElementById('cloudBtn');
+        if (btn) {
+          btn.onclick = () => showCloudSync();
+          console.log('✅ Обработчик кнопки восстановлен');
+        } else {
+          console.log('❌ Кнопка облака не найдена');
+        }
+      },
+      checkStorage: () => {
+        console.log('=== ПРОВЕРКА ХРАНИЛИЩА ===');
+        console.log('localStorage доступен:', isLocalStorageAvailable);
+        console.log('Тестовая запись...');
+        const testResult = safeSetItem('test', 'test');
+        console.log('Результат записи:', testResult ? '✅ OK' : '❌ FAIL');
+        const testRead = safeGetItem('test');
+        console.log('Результат чтения:', testRead ? '✅ OK' : '❌ FAIL');
+        safeRemoveItem('test');
+        console.log('Memory storage size:', Object.keys(memoryStorage).length);
+        console.log('========================');
+      },
       cloudStatus: () => ({
         firebase: { 
           enabled: firebaseSettings.enabled, 
@@ -2898,15 +3024,18 @@ ${compressedData}`;
         }
       },
       exportDebug: () => {
-        console.log('All sheets:', allSheets);
+        console.log('=== ДИАГНОСТИКА ДИСПЕТЧЕРА ===');
+        console.log('Storage доступен:', isLocalStorageAvailable);
+        console.log('Sheets:', Object.keys(allSheets).length);
         console.log('Current sheet:', currentSheet);
-        console.log('Current tasks:', tasksData);
+        console.log('Current tasks:', tasksData.length);
         console.log('Telegram configured:', !!(telegramSettings.botToken && telegramSettings.chatId));
         console.log('Cloud status:', window.debugApp.cloudStatus());
         console.log('Data size:', window.debugApp.getDataSize());
         console.log('Navigation: Enter/Tab для перехода, Shift+Tab для обратного перехода');
         console.log('Sync: Firebase для реального времени, GitHub Gist для версионности');
         console.log('Quick GitHub setup: debugApp.quickSetupGitHub("your_token")');
+        console.log('===========================');
       }
     };
   </script>
