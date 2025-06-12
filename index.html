@@ -673,6 +673,7 @@
       <h3>⚙️ Управление листами</h3>
       <button class="modal-button" onclick="closeModal('manageModal'); showRenameDialog();" style="width: 100%; margin-bottom: 10px; background: #667eea; color: white;">✏️ Переименовать лист</button>
       <button class="modal-button danger" onclick="closeModal('manageModal'); showDeleteDialog();" style="width: 100%; margin-bottom: 10px;">🗑️ Удалить лист</button>
+      <button class="modal-button danger" onclick="clearAllData();" style="width: 100%; margin-bottom: 10px;">🗑️ Очистить всё</button>
       <div class="modal-buttons" style="margin-top: 20px;">
         <button class="modal-button cancel" onclick="closeModal('manageModal')">Закрыть</button>
       </div>
@@ -723,6 +724,7 @@
       </div>
     </div>
   </div>
+  
   <div id="telegramSettingsModal" class="modal">
     <div class="modal-content">
       <h3>🤖 Настройки Telegram</h3>
@@ -1034,29 +1036,6 @@
     let githubSyncInProgress = false;
     let lastGitHubSync = 0;
 
-    // Шаблоны для быстрого заполнения
-    const templates = {
-      machines: ['107', '486', '513', '444', '284', '295', '689', '986', '795', 'лагуна'],
-      cargo: ['песок', 'щебень 31/63 м800', 'пгс', 'асфальт', 'почасовая'],
-      routes: [
-        'селычка - завьялово',
-        'Сидоровы горы - ильф закирова',
-        'сид горы - жк покровский',
-        'селычка - жк магистральный',
-        'сидоровы горы - Юськи',
-        'абз агат - баграш бигра',
-        'с поймы 34 на Можгу'
-      ],
-      customers: [
-        'ООО Союзпромсирой',
-        'ООО Римар', 
-        'ООО ИЖГОРОДСТРОЙ',
-        'ООО Инком',
-        'ООО Дорстрой 44',
-        'ООО ДМС'
-      ]
-    };
-
     // Утилиты
     function logError(message, error) {
       console.error(`[Cargo Dispatcher] ${message}:`, error);
@@ -1074,7 +1053,7 @@
           sheets: allSheets,
           lastSaved: new Date().toISOString()
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        safeSetItem(STORAGE_KEY, JSON.stringify(data));
         logInfo('Данные сохранены в localStorage');
         return true;
       } catch (error) {
@@ -1086,7 +1065,7 @@
 
     function loadFromStorage() {
       try {
-        const saved = localStorage.getItem(STORAGE_KEY);
+        const saved = safeGetItem(STORAGE_KEY);
         if (saved) {
           const data = JSON.parse(saved);
           if (data.sheets) {
@@ -1105,7 +1084,7 @@
     // Функции для настроек Telegram
     function loadTelegramSettings() {
       try {
-        const saved = localStorage.getItem(TELEGRAM_SETTINGS_KEY);
+        const saved = safeGetItem(TELEGRAM_SETTINGS_KEY);
         if (saved) {
           telegramSettings = JSON.parse(saved);
           logInfo('Настройки Telegram загружены');
@@ -1118,10 +1097,21 @@
       }
     }
 
+    function saveTelegramSettingsToStorage() {
+      try {
+        safeSetItem(TELEGRAM_SETTINGS_KEY, JSON.stringify(telegramSettings));
+        logInfo('Настройки Telegram сохранены');
+        return true;
+      } catch (error) {
+        logError('Ошибка сохранения настроек Telegram', error);
+        return false;
+      }
+    }
+
     // Функции для настроек Firebase
     function loadFirebaseSettings() {
       try {
-        const saved = localStorage.getItem(FIREBASE_SETTINGS_KEY);
+        const saved = safeGetItem(FIREBASE_SETTINGS_KEY);
         if (saved) {
           firebaseSettings = JSON.parse(saved);
           logInfo('Настройки Firebase загружены');
@@ -1134,10 +1124,21 @@
       }
     }
 
+    function saveFirebaseSettingsToStorage() {
+      try {
+        safeSetItem(FIREBASE_SETTINGS_KEY, JSON.stringify(firebaseSettings));
+        logInfo('Настройки Firebase сохранены');
+        return true;
+      } catch (error) {
+        logError('Ошибка сохранения настроек Firebase', error);
+        return false;
+      }
+    }
+
     // Функции для настроек GitHub
     function loadGitHubSettings() {
       try {
-        const saved = localStorage.getItem(GITHUB_SETTINGS_KEY);
+        const saved = safeGetItem(GITHUB_SETTINGS_KEY);
         if (saved) {
           githubSettings = JSON.parse(saved);
           logInfo('Настройки GitHub загружены');
@@ -1152,7 +1153,7 @@
 
     function saveGitHubSettingsToStorage() {
       try {
-        localStorage.setItem(GITHUB_SETTINGS_KEY, JSON.stringify(githubSettings));
+        safeSetItem(GITHUB_SETTINGS_KEY, JSON.stringify(githubSettings));
         logInfo('Настройки GitHub сохранены');
         return true;
       } catch (error) {
@@ -1883,6 +1884,7 @@
 
     // Показать меню файловой синхронизации (старый способ)
     function showSyncMenu() {
+      closeModal('cloudSyncModal');
       showModal('syncModal');
     }
 
@@ -2646,11 +2648,6 @@
       return message.trim();
     }
 
-    // Показать меню синхронизации
-    function showSyncMenu() {
-      showModal('syncModal');
-    }
-
     // Экспорт всех данных
     function exportAllData() {
       try {
@@ -2889,12 +2886,6 @@ ${compressedData}`;
       }
     }
 
-    // Заглушка для Telegram Storage
-    function showTelegramCloudSetup() {
-      showStatus('🚧 Telegram Storage скоро будет доступен!', 'error');
-      closeModal('cloudSyncModal');
-    }
-
     // Копирование в буфер обмена
     function copyToClipboard() {
       const message = formatForClipboard();
@@ -2973,9 +2964,8 @@ ${compressedData}`;
       }
       
       modal.classList.add('show');
-      const input = modal.querySelector('input');
+      const input = modal.querySelector('input[type="text"], input[type="password"]');
       if (input) {
-        input.value = '';
         setTimeout(() => input.focus(), 300);
       }
     }
@@ -3096,117 +3086,6 @@ ${compressedData}`;
 
     // Запуск приложения
     document.addEventListener('DOMContentLoaded', init);
-
-    // Отладочные функции (можно удалить в продакшене)
-    window.debugApp = {
-      getAllData: () => allSheets,
-      getCurrentData: () => tasksData,
-      clearAll: () => clearAllData(),
-      testTelegram: () => sendToTelegram(),
-      telegramConfigured: () => !!(telegramSettings.botToken && telegramSettings.chatId),
-      testExport: () => exportAllData(),
-      testImport: () => importAllData(),
-      testSync: () => showSyncMenu(),
-      testCloud: () => showCloudSync(),
-      testFirebaseSync: () => syncToCloud(),
-      testGitHubSync: () => syncToGitHub(),
-      testGitHubConnection: () => testGitHubConnection(),
-      quickSetupGitHub: (token) => {
-        if (!token) {
-          console.log('Использование: debugApp.quickSetupGitHub("ваш_токен")');
-          return;
-        }
-        githubSettings = {
-          token: token,
-          gistId: '',
-          fileName: 'cargo-dispatcher-data.json',
-          isPrivate: true,
-          enabled: true
-        };
-        saveGitHubSettingsToStorage();
-        console.log('GitHub Gist настроен! Тестируем подключение...');
-        testGitHubConnection();
-      },
-      diagnoseDOM: () => {
-        console.log('Диагностика DOM элементов:');
-        const elements = [
-          'cloudSyncModal',
-          'cloudNotConfigured', 
-          'cloudConfigured',
-          'cloudType',
-          'cloudUser',
-          'cloudConnectionStatus',
-          'cloudStatusIcon',
-          'cloudStatusText',
-          'cloudGistInfo'
-        ];
-        
-        elements.forEach(id => {
-          const el = document.getElementById(id);
-          console.log(`${id}: ${el ? '✅ найден' : '❌ НЕ НАЙДЕН'}`);
-        });
-        
-        console.log('Все модальные окна:', document.querySelectorAll('.modal').length);
-      },
-      fixCloudButton: () => {
-        console.log('Попытка исправить кнопку облака...');
-        const btn = document.getElementById('cloudBtn');
-        if (btn) {
-          btn.onclick = () => showCloudSync();
-          console.log('✅ Обработчик кнопки восстановлен');
-        } else {
-          console.log('❌ Кнопка облака не найдена');
-        }
-      },
-      checkStorage: () => {
-        console.log('=== ПРОВЕРКА ХРАНИЛИЩА ===');
-        console.log('localStorage доступен:', isLocalStorageAvailable);
-        console.log('Тестовая запись...');
-        const testResult = safeSetItem('test', 'test');
-        console.log('Результат записи:', testResult ? '✅ OK' : '❌ FAIL');
-        const testRead = safeGetItem('test');
-        console.log('Результат чтения:', testRead ? '✅ OK' : '❌ FAIL');
-        safeRemoveItem('test');
-        console.log('Memory storage size:', Object.keys(memoryStorage).length);
-        console.log('========================');
-      },
-      cloudStatus: () => ({
-        firebase: { 
-          enabled: firebaseSettings.enabled, 
-          online: isOnline, 
-          syncing: syncInProgress,
-          sdkLoaded: typeof firebase !== 'undefined'
-        },
-        github: { enabled: githubSettings.enabled, syncing: githubSyncInProgress, gistId: githubSettings.gistId },
-        userId: firebaseSettings.userId || 'none'
-      }),
-      getDataSize: () => {
-        const totalTasks = Object.values(allSheets).flat().length;
-        const dataSize = JSON.stringify(allSheets).length;
-        return { sheets: Object.keys(allSheets).length, tasks: totalTasks, sizeKB: Math.round(dataSize / 1024) };
-      },
-      testNavigation: () => {
-        const firstField = document.querySelector('[contenteditable]');
-        if (firstField) {
-          firstField.focus();
-          console.log('Используйте Enter или Tab для перехода между полями');
-        }
-      },
-      exportDebug: () => {
-        console.log('=== ДИАГНОСТИКА ДИСПЕТЧЕРА ===');
-        console.log('Storage доступен:', isLocalStorageAvailable);
-        console.log('Sheets:', Object.keys(allSheets).length);
-        console.log('Current sheet:', currentSheet);
-        console.log('Current tasks:', tasksData.length);
-        console.log('Telegram configured:', !!(telegramSettings.botToken && telegramSettings.chatId));
-        console.log('Cloud status:', window.debugApp.cloudStatus());
-        console.log('Data size:', window.debugApp.getDataSize());
-        console.log('Navigation: Enter/Tab для перехода, Shift+Tab для обратного перехода');
-        console.log('Sync: Firebase для реального времени, GitHub Gist для версионности');
-        console.log('Quick GitHub setup: debugApp.quickSetupGitHub("your_token")');
-        console.log('===========================');
-      }
-    };
   </script>
 </body>
 </html>
