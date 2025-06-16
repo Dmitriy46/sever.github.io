@@ -179,6 +179,196 @@
       background: white;
     }
     
+    @media (min-width: 390px) {
+      .action-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    /* Voice Input Styles */
+    .action-button.voice-active {
+      background: var(--apple-red);
+      color: white;
+      animation: voicePulse 1s infinite;
+    }
+
+    @keyframes voicePulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .voice-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .voice-modal.show {
+      display: flex;
+    }
+
+    .voice-content {
+      background: white;
+      border-radius: var(--radius-xl);
+      padding: var(--spacing-xl);
+      text-align: center;
+      max-width: 90%;
+      width: 350px;
+      animation: voiceModalSlide 0.3s ease-out;
+    }
+
+    @keyframes voiceModalSlide {
+      from {
+        opacity: 0;
+        transform: scale(0.8) translateY(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .voice-icon {
+      font-size: 64px;
+      margin-bottom: var(--spacing-lg);
+      animation: voiceIconPulse 1.5s infinite;
+    }
+
+    @keyframes voiceIconPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .voice-text {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: var(--spacing-md);
+      color: #000;
+    }
+
+    .voice-transcript {
+      background: var(--apple-gray6);
+      border-radius: var(--radius-md);
+      padding: var(--spacing-md);
+      margin: var(--spacing-md) 0;
+      min-height: 60px;
+      font-size: 15px;
+      color: var(--apple-gray);
+      border: 1px dashed var(--apple-gray3);
+    }
+
+    .voice-transcript.has-text {
+      color: #000;
+      border-color: var(--apple-blue);
+      background: rgba(0, 122, 255, 0.1);
+    }
+
+    .voice-controls {
+      display: flex;
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-lg);
+    }
+
+    .voice-control-btn {
+      flex: 1;
+      padding: 12px var(--spacing-md);
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .voice-control-btn:active {
+      transform: scale(0.95);
+    }
+
+    .voice-control-btn.cancel {
+      background: var(--apple-gray5);
+      color: #000;
+    }
+
+    .voice-control-btn.accept {
+      background: var(--apple-blue);
+      color: white;
+    }
+
+    .voice-control-btn.stop {
+      background: var(--apple-red);
+      color: white;
+    }
+
+    .voice-examples {
+      margin-top: var(--spacing-md);
+      padding: var(--spacing-md);
+      background: var(--apple-gray6);
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      color: var(--apple-gray);
+      text-align: left;
+    }
+
+    .voice-examples strong {
+      color: #000;
+    }
+
+    /* Voice Status Indicator */
+    .voice-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-sm);
+      margin: var(--spacing-md) 0;
+      font-size: 14px;
+      color: var(--apple-gray);
+    }
+
+    .voice-status.listening {
+      color: var(--apple-red);
+    }
+
+    .voice-status.processing {
+      color: var(--apple-orange);
+    }
+
+    .voice-status.done {
+      color: var(--apple-green);
+    }
+
+    .voice-wave {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 20px;
+    }
+
+    .voice-wave-bar {
+      width: 3px;
+      background: var(--apple-red);
+      border-radius: 2px;
+      animation: voiceWave 1s infinite ease-in-out;
+    }
+
+    .voice-wave-bar:nth-child(2) { animation-delay: 0.1s; }
+    .voice-wave-bar:nth-child(3) { animation-delay: 0.2s; }
+    .voice-wave-bar:nth-child(4) { animation-delay: 0.3s; }
+    .voice-wave-bar:nth-child(5) { animation-delay: 0.4s; }
+
+    @keyframes voiceWave {
+      0%, 40%, 100% { height: 4px; }
+      20% { height: 16px; }
+    }
+    
     .action-button {
       display: flex;
       flex-direction: column;
@@ -840,6 +1030,10 @@
       <span class="icon">➕</span>
       <span class="text">Новый заказ</span>
     </button>
+    <button onclick="startVoiceInput()" class="action-button" id="voiceBtn">
+      <span class="icon">🎤</span>
+      <span class="text">Голосовой ввод</span>
+    </button>
     <button onclick="saveData()" class="action-button success">
       <span class="icon">💾</span>
       <span class="text">Сохранить</span>
@@ -880,6 +1074,42 @@
     <button onclick="importAllData()" class="secondary-button">📥 Импорт данных</button>
     <button onclick="showManageDialog()" class="secondary-button">⚙️ Управление</button>
     <button onclick="shareViaText()" class="secondary-button">📱 Поделиться</button>
+  </div>
+
+  <!-- Voice Input Modal -->
+  <div id="voiceModal" class="voice-modal">
+    <div class="voice-content">
+      <div class="voice-icon" id="voiceIcon">🎤</div>
+      <div class="voice-text" id="voiceText">Нажмите и говорите</div>
+      
+      <div class="voice-status" id="voiceStatus">
+        <span id="voiceStatusText">Готов к записи</span>
+      </div>
+
+      <div class="voice-wave" id="voiceWave" style="display: none;">
+        <div class="voice-wave-bar"></div>
+        <div class="voice-wave-bar"></div>
+        <div class="voice-wave-bar"></div>
+        <div class="voice-wave-bar"></div>
+        <div class="voice-wave-bar"></div>
+      </div>
+      
+      <div class="voice-transcript" id="voiceTranscript">
+        Скажите что-то вроде: "Машина 107, песок, от Селычки до Завьялово, заказчик Союзпромстрой"
+      </div>
+      
+      <div class="voice-controls" id="voiceControls">
+        <button class="voice-control-btn cancel" onclick="cancelVoiceInput()">Отмена</button>
+        <button class="voice-control-btn stop" onclick="toggleVoiceRecording()" id="voiceToggleBtn">Начать запись</button>
+      </div>
+
+      <div class="voice-examples">
+        <strong>💡 Примеры команд:</strong><br>
+        • "Машина 107, песок, от Селычки до Завьялово"<br>
+        • "КамАЗ 25, щебень, Стройбаза Москва, заказчик ООО Стройком"<br>
+        • "Автомобиль сто восемь, кирпич, из Тулы в Калугу, примечание срочно"
+      </div>
+    </div>
   </div>
 
   <!-- Status Toast -->
