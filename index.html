@@ -2006,7 +2006,7 @@
       safeRemoveItem(STORAGE_KEY);
       safeRemoveItem(GITHUB_SETTINGS_KEY);
       
-      createInitialData();
+      // createInitialData();
       githubSettings = { token: '', gistId: '', fileName: 'cargo-dispatcher-data.json', isPrivate: true, enabled: false };
       
       updateSheetSelector();
@@ -2215,7 +2215,7 @@
               currentSheet = cloudData.currentSheet || sheets[0];
               tasksData = [...(allSheets[currentSheet] || [])];
             } else {
-              createInitialData();
+              // createInitialData();
             }
             
             updateSheetSelector();
@@ -2555,7 +2555,7 @@
         selectedTasks = new Set();
         
         // Создаем минимальные данные
-        createInitialData();
+        // createInitialData();
         
         // Принудительно обновляем интерфейс
         updateSheetSelector();
