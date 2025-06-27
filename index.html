@@ -1477,6 +1477,28 @@
       });
       
       if (helpTip) helpTip.style.display = 'block';
+
+
+  // Обычная вставка только текста во все contenteditable (без HTML)
+  document.querySelectorAll('[contenteditable]').forEach(el => {
+    el.addEventListener('paste', function(e) {
+      e.preventDefault();
+      // Берём только чистый текст из буфера обмена
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      // Вставляем именно текст (без HTML и форматирования)
+      if (document.queryCommandSupported && document.queryCommandSupported('insertText')) {
+        document.execCommand('insertText', false, text);
+      } else {
+        // Фоллбэк для очень старых браузеров
+        document.execCommand('paste', false, text);
+      }
+    });
+  });
+
+
+
+
+
     }
 
     function createTaskCard(taskData, index) {
