@@ -1257,7 +1257,7 @@
       checkLocalStorage();
       
       if (!loadFromStorage()) {
-        createInitialData();
+        // createInitialData();
         saveToStorage();
       } else {
         const sheets = Object.keys(allSheets).sort().reverse();
@@ -1265,7 +1265,7 @@
           currentSheet = sheets[0];
           tasksData = [...allSheets[currentSheet]];
         } else {
-          createInitialData();
+          // createInitialData();
         }
       }
 
