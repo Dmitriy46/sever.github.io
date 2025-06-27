@@ -1217,20 +1217,24 @@
         const today = new Date().toLocaleDateString('ru-RU');
         console.log('[Cargo Dispatcher] Создаем начальные данные для даты:', today);
         
+        // allSheets = {
+        //   [today]: [
+        //     {
+        //       machines: '107',
+        //       orders: [{
+        //         cargo: 'песок',
+        //         from: 'селычка',
+        //         to: 'завьялово', 
+        //         customer: 'ООО Союзпромсирой',
+        //         note: 'пример заказа'
+        //       }]
+        //     }
+        //   ]
+        // };
+
         allSheets = {
-          [today]: [
-            {
-              // machines: '107',
-              // orders: [{
-              //   cargo: 'песок',
-              //   from: 'селычка',
-              //   to: 'завьялово', 
-              //   customer: 'ООО Союзпромсирой',
-              //   note: 'пример заказа'
-              // }]
-            }
-          ]
-        };
+      [today]: []
+    };
         currentSheet = today;
         tasksData = [...allSheets[currentSheet]];
         
