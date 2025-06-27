@@ -277,11 +277,20 @@
       user-select: text;
       word-wrap: break-word;
       white-space: pre-wrap;
+      /* Мобильные улучшения */
+      -webkit-touch-callout: default;
+      -webkit-appearance: none;
+      -webkit-tap-highlight-color: rgba(0, 122, 255, 0.1);
+      touch-action: manipulation;
+      /* Размер шрифта для мобильных - предотвращает зум */
+      font-size: max(17px, 1rem);
     }
     
     .machine-name:focus {
       border-color: var(--apple-blue);
       box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3);
+      /* Дополнительные стили для мобильного фокуса */
+      -webkit-tap-highlight-color: rgba(0, 122, 255, 0.2);
     }
 
     .machine-name:hover {
@@ -398,12 +407,21 @@
       user-select: text;
       word-wrap: break-word;
       white-space: pre-wrap;
+      /* Мобильные улучшения */
+      -webkit-touch-callout: default;
+      -webkit-appearance: none;
+      -webkit-tap-highlight-color: rgba(0, 122, 255, 0.1);
+      touch-action: manipulation;
+      /* Размер шрифта для мобильных - предотвращает зум */
+      font-size: max(15px, 1rem);
     }
     
     .task-detail .value:focus {
       border-color: var(--apple-blue);
       box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3);
       background: white;
+      /* Дополнительные стили для мобильного фокуса */
+      -webkit-tap-highlight-color: rgba(0, 122, 255, 0.2);
     }
 
     .task-detail .value:hover {
@@ -748,6 +766,36 @@
       100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
     }
 
+    /* Дополнительные мобильные стили */
+    @media (max-width: 768px) {
+      .task-detail .value,
+      .machine-name {
+        /* Увеличиваем минимальную высоту для лучшего тача */
+        min-height: 44px;
+        padding: 12px var(--spacing-md);
+        /* Убираем зум при фокусе на iOS */
+        font-size: 16px;
+      }
+      
+      .task-detail .label {
+        /* Увеличиваем размер лейблов на мобильных */
+        font-size: 16px;
+        min-width: 90px;
+      }
+    }
+
+    /* Специальные стили для iOS */
+    @supports (-webkit-touch-callout: none) {
+      .task-detail .value,
+      .machine-name,
+      [contenteditable="true"] {
+        /* Принудительно включаем возможность выделения на iOS */
+        -webkit-touch-callout: default !important;
+        -webkit-user-select: text !important;
+        user-select: text !important;
+      }
+    }
+
     /* Responsive */
     @media (min-width: 768px) {
       .action-grid {
@@ -873,21 +921,33 @@
       user-select: none;
     }
 
-    /* Разрешаем выделение текста в редактируемых полях */
+    /* ВАЖНО: Разрешаем мобильные жесты для редактируемых полей */
     .task-detail .value,
     .machine-name,
     [contenteditable="true"] {
-      -webkit-touch-callout: default;
-      -webkit-user-select: text;
-      user-select: text;
+      -webkit-touch-callout: default !important;
+      -webkit-user-select: text !important;
+      user-select: text !important;
       cursor: text;
+      /* Разрешаем длинное нажатие на мобильных */
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
 
     .task-detail .value:focus,
     .machine-name:focus {
-      -webkit-touch-callout: default;
-      -webkit-user-select: text;
-      user-select: text;
+      -webkit-touch-callout: default !important;
+      -webkit-user-select: text !important;
+      user-select: text !important;
+    }
+
+    /* Модальные окна тоже должны поддерживать вставку */
+    .modal input,
+    .modal textarea {
+      -webkit-touch-callout: default !important;
+      -webkit-user-select: text !important;
+      user-select: text !important;
+      touch-action: manipulation;
     }
 
     /* Haptic feedback simulation */
@@ -1641,9 +1701,17 @@
       });
 
       // iOS-специфичные обработчики
-      document.addEventListener('touchend', () => {
-        // Убираем :hover состояния на iOS
-        document.activeElement.blur();
+      document.addEventListener('touchend', (e) => {
+        // Убираем :hover состояния на iOS, НО не для редактируемых полей
+        const target = e.target;
+        const isEditable = target.contentEditable === 'true' || 
+                          target.tagName === 'INPUT' || 
+                          target.tagName === 'TEXTAREA' ||
+                          target.closest('[contenteditable="true"]');
+        
+        if (!isEditable) {
+          document.activeElement.blur();
+        }
       });
     }
 
