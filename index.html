@@ -1220,14 +1220,14 @@
         allSheets = {
           [today]: [
             {
-              machines: '107',
-              orders: [{
-                cargo: 'песок',
-                from: 'селычка',
-                to: 'завьялово', 
-                customer: 'ООО Союзпромсирой',
-                note: 'пример заказа'
-              }]
+              // machines: '107',
+              // orders: [{
+              //   cargo: 'песок',
+              //   from: 'селычка',
+              //   to: 'завьялово', 
+              //   customer: 'ООО Союзпромсирой',
+              //   note: 'пример заказа'
+              // }]
             }
           ]
         };
@@ -1257,7 +1257,7 @@
       checkLocalStorage();
       
       if (!loadFromStorage()) {
-        // createInitialData();
+        createInitialData();
         saveToStorage();
       } else {
         const sheets = Object.keys(allSheets).sort().reverse();
@@ -1265,7 +1265,7 @@
           currentSheet = sheets[0];
           tasksData = [...allSheets[currentSheet]];
         } else {
-          // createInitialData();
+          createInitialData();
         }
       }
 
@@ -2006,7 +2006,7 @@
       safeRemoveItem(STORAGE_KEY);
       safeRemoveItem(GITHUB_SETTINGS_KEY);
       
-      // createInitialData();
+      createInitialData();
       githubSettings = { token: '', gistId: '', fileName: 'cargo-dispatcher-data.json', isPrivate: true, enabled: false };
       
       updateSheetSelector();
@@ -2215,7 +2215,7 @@
               currentSheet = cloudData.currentSheet || sheets[0];
               tasksData = [...(allSheets[currentSheet] || [])];
             } else {
-              // createInitialData();
+              createInitialData();
             }
             
             updateSheetSelector();
@@ -2555,7 +2555,7 @@
         selectedTasks = new Set();
         
         // Создаем минимальные данные
-        // createInitialData();
+        createInitialData();
         
         // Принудительно обновляем интерфейс
         updateSheetSelector();
