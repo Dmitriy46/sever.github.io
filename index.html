@@ -65,44 +65,6 @@
       --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
     }
 
-    function createInitialData() {
-      try {
-        const today = new Date().toLocaleDateString('ru-RU');
-        console.log('[Cargo Dispatcher] Создаем начальные данные для даты:', today);
-        
-        allSheets = {
-          [today]: [
-            {
-              machines: '107',
-              orders: [{
-                cargo: 'песок',
-                from: 'селычка',
-                to: 'завьялово', 
-                customer: 'ООО Союзпромсирой',
-                note: 'пример заказа'
-              }]
-            }
-          ]
-        };
-        currentSheet = today;
-        tasksData = [...allSheets[currentSheet]];
-        
-        console.log('[Cargo Dispatcher] Созданы начальные данные');
-        console.log('[Cargo Dispatcher] Листы:', Object.keys(allSheets));
-        console.log('[Cargo Dispatcher] Текущий лист:', currentSheet);
-        console.log('[Cargo Dispatcher] Задач:', tasksData.length);
-        
-      } catch (error) {
-        console.error('[Cargo Dispatcher] Ошибка создания начальных данных:', error);
-        
-        // Минимальная структура в случае ошибки
-        const today = new Date().toLocaleDateString('ru-RU');
-        allSheets = { [today]: [] };
-        currentSheet = today;
-        tasksData = [];
-      }
-    }
-
     * {
       box-sizing: border-box;
       -webkit-tap-highlight-color: transparent;
@@ -1231,266 +1193,6 @@
       }
     }
 
-    // Улучшенная функция копирования в буфер обмена
-    async function copyToClipboard() {
-      const message = formatForClipboard();
-      
-      if (!message.trim()) {
-        showStatus('Нет данных для копирования', 'error');
-        return;
-      }
-
-      let success = false;
-      
-      // Метод 1: Современный Clipboard API
-      if (navigator.clipboard && window.isSecureContext) {
-        try {
-          await navigator.clipboard.writeText(message);
-          success = true;
-          console.log('[Cargo Dispatcher] Скопировано через Clipboard API');
-        } catch (error) {
-          console.warn('[Cargo Dispatcher] Clipboard API не сработал:', error);
-        }
-      }
-      
-      // Метод 2: Синхронный fallback через textarea
-      if (!success) {
-        try {
-          success = copyWithTextArea(message);
-          if (success) {
-            console.log('[Cargo Dispatcher] Скопировано через textarea');
-          }
-        } catch (error) {
-          console.error('[Cargo Dispatcher] Textarea копирование не сработало:', error);
-        }
-      }
-      
-      // Метод 3: Share API для мобильных (только если другие не сработали)
-      if (!success && navigator.share && isMobile()) {
-        try {
-          await navigator.share({
-            title: 'Диспетчер грузоперевозок',
-            text: message
-          });
-          success = true;
-          console.log('[Cargo Dispatcher] Поделился через Share API');
-        } catch (error) {
-          console.warn('[Cargo Dispatcher] Share API не сработал:', error);
-        }
-      }
-      
-      // Показываем результат
-      if (success) {
-        showCopySuccess();
-      } else {
-        showCopyFallback(message);
-      }
-    }
-
-    // Синхронная функция копирования через textarea
-    function copyWithTextArea(text) {
-      const textArea = document.createElement('textarea');
-      textArea.value = text;
-      
-      // Критически важные стили для работы
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-9999px';
-      textArea.style.top = '-9999px';
-      textArea.style.width = '1px';
-      textArea.style.height = '1px';
-      textArea.style.opacity = '0';
-      textArea.style.border = 'none';
-      textArea.style.outline = 'none';
-      textArea.style.boxShadow = 'none';
-      textArea.style.background = 'transparent';
-      textArea.setAttribute('readonly', '');
-      textArea.setAttribute('tabindex', '-1');
-      
-      try {
-        document.body.appendChild(textArea);
-        
-        // Фокус и выделение
-        textArea.focus();
-        textArea.select();
-        textArea.setSelectionRange(0, text.length);
-        
-        // Попытка копирования
-        const success = document.execCommand('copy');
-        
-        // Чистим за собой
-        document.body.removeChild(textArea);
-        
-        return success;
-      } catch (error) {
-        // Чистим в случае ошибки
-        if (textArea.parentNode) {
-          document.body.removeChild(textArea);
-        }
-        throw error;
-      }
-    }
-
-    // Проверка на мобильное устройство
-    function isMobile() {
-      return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    }
-
-    // Показать успешное копирование
-    function showCopySuccess() {
-      hapticFeedback('medium');
-      showCopyIndicator();
-      showStatus('✅ Данные скопированы в буфер обмена!', 'success');
-    }
-
-    // Показать fallback для ручного копирования
-    function showCopyFallback(text) {
-      hapticFeedback('light');
-      showStatus('Копирование не удалось, откроется окно для ручного копирования', 'error');
-      
-      setTimeout(() => {
-        showCopyFallbackModal(text);
-      }, 1000);
-    }
-
-    // Показать индикатор успешного копирования
-    function showCopyIndicator() {
-      const indicator = document.getElementById('copyIndicator');
-      if (indicator) {
-        indicator.classList.add('show');
-        setTimeout(() => {
-          indicator.classList.remove('show');
-        }, 1500);
-      }
-    }
-
-    // Fallback модальное окно для ручного копирования
-    function showCopyFallbackModal(text) {
-      const modal = document.createElement('div');
-      modal.className = 'modal show';
-      modal.innerHTML = `
-        <div class="modal-content">
-          <h3>📋 Скопируйте текст</h3>
-          <div class="info-box warning">
-            Автоматическое копирование не сработало. Пожалуйста, скопируйте текст вручную:
-          </div>
-          <textarea readonly style="width: 100%; height: 200px; padding: 12px; border: 1px solid var(--apple-gray4); border-radius: var(--radius-md); font-family: monospace; font-size: 14px; resize: vertical;">${text}</textarea>
-          <div class="modal-buttons">
-            <button class="modal-button cancel" onclick="this.closest('.modal').remove()">Закрыть</button>
-            <button class="modal-button confirm" onclick="selectAllText(this); showStatus('Выделено! Нажмите Ctrl+C (Cmd+C)', 'success')">Выделить всё</button>
-          </div>
-        </div>
-      `;
-      
-      document.body.appendChild(modal);
-      
-      // Выделяем текст в textarea
-      const textarea = modal.querySelector('textarea');
-      setTimeout(() => {
-        textarea.focus();
-        textarea.select();
-      }, 100);
-    }
-
-    // Выделить весь текст в textarea
-    function selectAllText(button) {
-      const textarea = button.closest('.modal-content').querySelector('textarea');
-      textarea.focus();
-      textarea.select();
-      textarea.setSelectionRange(0, textarea.value.length);
-    }
-
-    // Форматирование для буфера обмена
-    function formatForClipboard() {
-      let message = `📅 ${currentSheet}\n\n`;
-      
-      const activeTasks = tasksData.filter(task => task.machines);
-      
-      if (activeTasks.length === 0) {
-        message += 'Нет заданий на эту дату.\n';
-        return message;
-      }
-      
-      activeTasks.forEach((task, taskIndex) => {
-        message += `🚛 ${task.machines}\n`;
-        
-        task.orders.forEach((order, orderIndex) => {
-          if (task.orders.length > 1) {
-            message += `  ${orderIndex + 1}. `;
-          } else {
-            message += `  `;
-          }
-          
-          message += `📦 ${order.cargo || '-'} | `;
-          message += `📍 ${order.from || '?'} → ${order.to || '?'} | `;
-          message += `👤 ${order.customer || '-'}`;
-          
-          if (order.note) {
-            message += `\n     📝 ${order.note}`;
-          }
-          message += '\n';
-        });
-        
-        message += '\n';
-      });
-      
-      return message.trim();
-    }
-
-    function duplicateSelected() {
-      hapticFeedback('medium');
-      if (selectedTasks.size === 0) {
-        showStatus('Выберите задания для дублирования', 'error');
-        return;
-      }
-      
-      const indices = Array.from(selectedTasks).sort((a, b) => b - a);
-      indices.forEach(index => {
-        if (tasksData[index]) {
-          const original = tasksData[index];
-          const duplicate = {
-            machines: '',
-            orders: original.orders.map(order => ({...order}))
-          };
-          tasksData.splice(index + 1, 0, duplicate);
-        }
-      });
-      
-      renderTasks();
-      showStatus(`Продублировано заданий: ${indices.length}`, 'success');
-      
-      allSheets[currentSheet] = [...tasksData];
-      saveToStorage();
-    }
-
-    function deleteSelected() {
-      hapticFeedback('heavy');
-      if (selectedTasks.size === 0) {
-        showStatus('Выберите задания для удаления', 'error');
-        return;
-      }
-      
-      if (!confirm(`Удалить выбранные задания (${selectedTasks.size} шт.)?`)) {
-        return;
-      }
-      
-      const indices = Array.from(selectedTasks).sort((a, b) => b - a);
-      indices.forEach(index => {
-        if (tasksData[index]) {
-          tasksData.splice(index, 1);
-        }
-      });
-      
-      renderTasks();
-      showStatus('Задания удалены', 'success');
-      
-      allSheets[currentSheet] = [...tasksData];
-      saveToStorage();
-    }
-
-    function showManageDialog() {
-      showModal('manageModal');
-    }
-
     // iOS-специфичные функции
     function hapticFeedback(type = 'light') {
       // Имитация тактильной обратной связи для iOS
@@ -1506,6 +1208,45 @@
             navigator.vibrate(30);
             break;
         }
+      }
+    }
+
+    // Создание начальных данных
+    function createInitialData() {
+      try {
+        const today = new Date().toLocaleDateString('ru-RU');
+        console.log('[Cargo Dispatcher] Создаем начальные данные для даты:', today);
+        
+        allSheets = {
+          [today]: [
+            {
+              machines: '107',
+              orders: [{
+                cargo: 'песок',
+                from: 'селычка',
+                to: 'завьялово', 
+                customer: 'ООО Союзпромсирой',
+                note: 'пример заказа'
+              }]
+            }
+          ]
+        };
+        currentSheet = today;
+        tasksData = [...allSheets[currentSheet]];
+        
+        console.log('[Cargo Dispatcher] Созданы начальные данные');
+        console.log('[Cargo Dispatcher] Листы:', Object.keys(allSheets));
+        console.log('[Cargo Dispatcher] Текущий лист:', currentSheet);
+        console.log('[Cargo Dispatcher] Задач:', tasksData.length);
+        
+      } catch (error) {
+        console.error('[Cargo Dispatcher] Ошибка создания начальных данных:', error);
+        
+        // Минимальная структура в случае ошибки
+        const today = new Date().toLocaleDateString('ru-RU');
+        allSheets = { [today]: [] };
+        currentSheet = today;
+        tasksData = [];
       }
     }
 
@@ -1528,7 +1269,8 @@
         }
       }
 
-      loadTelegramSettings();
+      // ВАЖНО: Загружаем настройки GitHub
+      loadGitHubSettings();
 
       updateSheetSelector();
       renderTasks();
@@ -1551,109 +1293,6 @@
       }, 30000);
 
       console.log('[Cargo Dispatcher] Приложение инициализировано');
-    }
-
-    // Аварийная инициализация при критических ошибках
-    function emergencyInit() {
-      console.log('[Cargo Dispatcher] Запуск аварийной инициализации...');
-      
-      try {
-        // Сбрасываем все переменные
-        allSheets = {};
-        currentSheet = '';
-        tasksData = [];
-        selectedTasks = new Set();
-        
-        // Создаем минимальные данные
-        const today = new Date().toLocaleDateString('ru-RU');
-        allSheets[today] = [];
-        currentSheet = today;
-        tasksData = [];
-        
-        // Принудительно обновляем селектор
-        forceUpdateSelector();
-        
-        // Показываем пустое состояние
-        showEmptyState();
-        
-        // Базовые обработчики
-        try {
-          setupEventListeners();
-        } catch (error) {
-          console.error('[Cargo Dispatcher] Ошибка настройки обработчиков в аварийном режиме:', error);
-        }
-        
-        showStatus('⚠️ Приложение запущено в аварийном режиме', 'error');
-        console.log('[Cargo Dispatcher] Аварийная инициализация завершена');
-        
-      } catch (error) {
-        console.error('[Cargo Dispatcher] Критическая ошибка аварийной инициализации:', error);
-        
-        // Последняя попытка - показать базовое сообщение об ошибке
-        const container = document.getElementById('tasksContainer');
-        if (container) {
-          container.innerHTML = `
-            <div class="empty-state">
-              <div class="icon">⚠️</div>
-              <div class="text">Критическая ошибка приложения.<br>Обновите страницу.</div>
-            </div>
-          `;
-        }
-      }
-    }
-
-    // Принудительное обновление селектора
-    function forceUpdateSelector() {
-      try {
-        const selector = document.getElementById('sheetSelector');
-        if (!selector) {
-          console.error('[Cargo Dispatcher] Селектор не найден!');
-          return;
-        }
-        
-        // Создаем базовый список опций
-        const sheets = Object.keys(allSheets || {}).sort().reverse();
-        let options = '<option value="_new">➕ Создать новую дату</option>';
-        
-        if (sheets.length > 0) {
-          options += sheets.map(sheet => 
-            `<option value="${sheet}" ${sheet === currentSheet ? 'selected' : ''}>${sheet}</option>`
-          ).join('');
-        } else {
-          // Если нет листов, создаем сегодняшний
-          const today = new Date().toLocaleDateString('ru-RU');
-          options += `<option value="${today}" selected>${today}</option>`;
-          
-          if (!allSheets) allSheets = {};
-          allSheets[today] = [];
-          currentSheet = today;
-          tasksData = [];
-        }
-        
-        selector.innerHTML = options;
-        console.log('[Cargo Dispatcher] Селектор принудительно обновлен');
-        
-      } catch (error) {
-        console.error('[Cargo Dispatcher] Ошибка принудительного обновления селектора:', error);
-      }
-    }
-
-    // Показать пустое состояние
-    function showEmptyState() {
-      try {
-        const container = document.getElementById('tasksContainer');
-        if (container) {
-          container.innerHTML = `
-            <div class="empty-state">
-              <div class="icon">📋</div>
-              <div class="text">Нет заданий. Добавьте новый заказ!</div>
-            </div>
-          `;
-        }
-        console.log('[Cargo Dispatcher] Показано пустое состояние');
-      } catch (error) {
-        console.error('[Cargo Dispatcher] Ошибка показа пустого состояния:', error);
-      }
     }
 
     function setupEventListeners() {
@@ -2095,60 +1734,264 @@
       }
     }
 
-    function importAllData() {
-      hapticFeedback('light');
-      document.getElementById('dataImportInput').click();
-    }
-
-    function handleDataImport(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+    // Улучшенная функция копирования в буфер обмена
+    async function copyToClipboard() {
+      const message = formatForClipboard();
       
-      const reader = new FileReader();
-      reader.onload = function(e) {
+      if (!message.trim()) {
+        showStatus('Нет данных для копирования', 'error');
+        return;
+      }
+
+      let success = false;
+      
+      // Метод 1: Современный Clipboard API
+      if (navigator.clipboard && window.isSecureContext) {
         try {
-          const data = JSON.parse(e.target.result);
-          
-          if (!data.sheets) {
-            throw new Error('Неверный формат файла');
-          }
-          
-          const totalTasks = Object.values(data.sheets).flat().length;
-          const exportDate = new Date(data.exportDate).toLocaleDateString('ru-RU');
-          const device = data.device || 'неизвестно';
-          
-          const confirmText = `Импортировать данные?\n\n📊 Листов: ${Object.keys(data.sheets).length}\n📋 Заданий: ${totalTasks}\n📅 Экспорт: ${exportDate}\n📱 Устройство: ${device}\n\n⚠️ Текущие данные будут заменены!`;
-          
-          if (confirm(confirmText)) {
-            allSheets = data.sheets || {};
-            
-            const sheets = Object.keys(allSheets);
-            if (sheets.length > 0) {
-              currentSheet = data.currentSheet || sheets[0];
-              tasksData = [...(allSheets[currentSheet] || [])];
-            } else {
-              createInitialData();
-            }
-            
-            updateSheetSelector();
-            renderTasks();
-            saveToStorage();
-            
-            showStatus(`✅ Импортировано: ${Object.keys(allSheets).length} листов, ${totalTasks} заданий`, 'success');
-            
-            setTimeout(() => {
-              showStatus(`📱 Данные с ${device} успешно синхронизированы`, 'success');
-            }, 3000);
+          await navigator.clipboard.writeText(message);
+          success = true;
+          console.log('[Cargo Dispatcher] Скопировано через Clipboard API');
+        } catch (error) {
+          console.warn('[Cargo Dispatcher] Clipboard API не сработал:', error);
+        }
+      }
+      
+      // Метод 2: Синхронный fallback через textarea
+      if (!success) {
+        try {
+          success = copyWithTextArea(message);
+          if (success) {
+            console.log('[Cargo Dispatcher] Скопировано через textarea');
           }
         } catch (error) {
-          console.error('[Cargo Dispatcher] Ошибка импорта', error);
-          showStatus('Ошибка импорта: неверный формат файла', 'error');
+          console.error('[Cargo Dispatcher] Textarea копирование не сработало:', error);
         }
-        
-        event.target.value = '';
-      };
+      }
       
-      reader.readAsText(file);
+      // Метод 3: Share API для мобильных (только если другие не сработали)
+      if (!success && navigator.share && isMobile()) {
+        try {
+          await navigator.share({
+            title: 'Диспетчер грузоперевозок',
+            text: message
+          });
+          success = true;
+          console.log('[Cargo Dispatcher] Поделился через Share API');
+        } catch (error) {
+          console.warn('[Cargo Dispatcher] Share API не сработал:', error);
+        }
+      }
+      
+      // Показываем результат
+      if (success) {
+        showCopySuccess();
+      } else {
+        showCopyFallback(message);
+      }
+    }
+
+    // Синхронная функция копирования через textarea
+    function copyWithTextArea(text) {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      
+      // Критически важные стили для работы
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      textArea.style.top = '-9999px';
+      textArea.style.width = '1px';
+      textArea.style.height = '1px';
+      textArea.style.opacity = '0';
+      textArea.style.border = 'none';
+      textArea.style.outline = 'none';
+      textArea.style.boxShadow = 'none';
+      textArea.style.background = 'transparent';
+      textArea.setAttribute('readonly', '');
+      textArea.setAttribute('tabindex', '-1');
+      
+      try {
+        document.body.appendChild(textArea);
+        
+        // Фокус и выделение
+        textArea.focus();
+        textArea.select();
+        textArea.setSelectionRange(0, text.length);
+        
+        // Попытка копирования
+        const success = document.execCommand('copy');
+        
+        // Чистим за собой
+        document.body.removeChild(textArea);
+        
+        return success;
+      } catch (error) {
+        // Чистим в случае ошибки
+        if (textArea.parentNode) {
+          document.body.removeChild(textArea);
+        }
+        throw error;
+      }
+    }
+
+    // Проверка на мобильное устройство
+    function isMobile() {
+      return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    // Показать успешное копирование
+    function showCopySuccess() {
+      hapticFeedback('medium');
+      showCopyIndicator();
+      showStatus('✅ Данные скопированы в буфер обмена!', 'success');
+    }
+
+    // Показать fallback для ручного копирования
+    function showCopyFallback(text) {
+      hapticFeedback('light');
+      showStatus('Копирование не удалось, откроется окно для ручного копирования', 'error');
+      
+      setTimeout(() => {
+        showCopyFallbackModal(text);
+      }, 1000);
+    }
+
+    // Показать индикатор успешного копирования
+    function showCopyIndicator() {
+      const indicator = document.getElementById('copyIndicator');
+      if (indicator) {
+        indicator.classList.add('show');
+        setTimeout(() => {
+          indicator.classList.remove('show');
+        }, 1500);
+      }
+    }
+
+    // Fallback модальное окно для ручного копирования
+    function showCopyFallbackModal(text) {
+      const modal = document.createElement('div');
+      modal.className = 'modal show';
+      modal.innerHTML = `
+        <div class="modal-content">
+          <h3>📋 Скопируйте текст</h3>
+          <div class="info-box warning">
+            Автоматическое копирование не сработало. Пожалуйста, скопируйте текст вручную:
+          </div>
+          <textarea readonly style="width: 100%; height: 200px; padding: 12px; border: 1px solid var(--apple-gray4); border-radius: var(--radius-md); font-family: monospace; font-size: 14px; resize: vertical;">${text}</textarea>
+          <div class="modal-buttons">
+            <button class="modal-button cancel" onclick="this.closest('.modal').remove()">Закрыть</button>
+            <button class="modal-button confirm" onclick="selectAllText(this); showStatus('Выделено! Нажмите Ctrl+C (Cmd+C)', 'success')">Выделить всё</button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Выделяем текст в textarea
+      const textarea = modal.querySelector('textarea');
+      setTimeout(() => {
+        textarea.focus();
+        textarea.select();
+      }, 100);
+    }
+
+    // Выделить весь текст в textarea
+    function selectAllText(button) {
+      const textarea = button.closest('.modal-content').querySelector('textarea');
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+    }
+
+    // Форматирование для буфера обмена
+    function formatForClipboard() {
+      let message = `📅 ${currentSheet}\n\n`;
+      
+      const activeTasks = tasksData.filter(task => task.machines);
+      
+      if (activeTasks.length === 0) {
+        message += 'Нет заданий на эту дату.\n';
+        return message;
+      }
+      
+      activeTasks.forEach((task, taskIndex) => {
+        message += `🚛 ${task.machines}\n`;
+        
+        task.orders.forEach((order, orderIndex) => {
+          if (task.orders.length > 1) {
+            message += `  ${orderIndex + 1}. `;
+          } else {
+            message += `  `;
+          }
+          
+          message += `📦 ${order.cargo || '-'} | `;
+          message += `📍 ${order.from || '?'} → ${order.to || '?'} | `;
+          message += `👤 ${order.customer || '-'}`;
+          
+          if (order.note) {
+            message += `\n     📝 ${order.note}`;
+          }
+          message += '\n';
+        });
+        
+        message += '\n';
+      });
+      
+      return message.trim();
+    }
+
+    function duplicateSelected() {
+      hapticFeedback('medium');
+      if (selectedTasks.size === 0) {
+        showStatus('Выберите задания для дублирования', 'error');
+        return;
+      }
+      
+      const indices = Array.from(selectedTasks).sort((a, b) => b - a);
+      indices.forEach(index => {
+        if (tasksData[index]) {
+          const original = tasksData[index];
+          const duplicate = {
+            machines: '',
+            orders: original.orders.map(order => ({...order}))
+          };
+          tasksData.splice(index + 1, 0, duplicate);
+        }
+      });
+      
+      renderTasks();
+      showStatus(`Продублировано заданий: ${indices.length}`, 'success');
+      
+      allSheets[currentSheet] = [...tasksData];
+      saveToStorage();
+    }
+
+    function deleteSelected() {
+      hapticFeedback('heavy');
+      if (selectedTasks.size === 0) {
+        showStatus('Выберите задания для удаления', 'error');
+        return;
+      }
+      
+      if (!confirm(`Удалить выбранные задания (${selectedTasks.size} шт.)?`)) {
+        return;
+      }
+      
+      const indices = Array.from(selectedTasks).sort((a, b) => b - a);
+      indices.forEach(index => {
+        if (tasksData[index]) {
+          tasksData.splice(index, 1);
+        }
+      });
+      
+      renderTasks();
+      showStatus('Задания удалены', 'success');
+      
+      allSheets[currentSheet] = [...tasksData];
+      saveToStorage();
+    }
+
+    function showManageDialog() {
+      showModal('manageModal');
     }
 
     function clearAllData() {
@@ -2689,91 +2532,58 @@
         selector.innerHTML = '<option value="">Загрузка...</option>';
       }
       
-      // Запускаем инициализацию с принудительным обновлением селектора
+      // Запускаем инициализацию
       setTimeout(() => {
         try {
           init();
         } catch (error) {
           console.error('[Cargo Dispatcher] Ошибка инициализации:', error);
-          
-          // Принудительно создаем минимальные данные и обновляем интерфейс
-          forceBasicInit();
+          emergencyInit();
         }
-        
-        // В любом случае обновляем селектор
-        setTimeout(() => {
-          forceUpdateSheetSelector();
-        }, 200);
       }, 100);
     });
 
-    // Принудительная базовая инициализация
-    function forceBasicInit() {
-      console.log('[Cargo Dispatcher] Принудительная базовая инициализация');
-      
-      // Создаем минимальные данные
-      const today = new Date().toLocaleDateString('ru-RU');
-      allSheets = {
-        [today]: [
-          {
-            machines: '107',
-            orders: [{
-              cargo: 'песок',
-              from: 'селычка',
-              to: 'завьялово', 
-              customer: 'ООО Союзпромсирой',
-              note: 'пример заказа'
-            }]
-          }
-        ]
-      };
-      currentSheet = today;
-      tasksData = [...allSheets[currentSheet]];
-      selectedTasks = new Set();
-      
-      // Принудительно обновляем интерфейс
-      forceUpdateSheetSelector();
-      renderTasks();
+    // Аварийная инициализация при критических ошибках
+    function emergencyInit() {
+      console.log('[Cargo Dispatcher] Запуск аварийной инициализации...');
       
       try {
-        setupEventListeners();
-      } catch (error) {
-        console.log('[Cargo Dispatcher] Ошибка настройки обработчиков:', error.message);
-      }
-      
-      showStatus('✅ Приложение готово к работе', 'success');
-    }
-
-    // Принудительное обновление селектора
-    function forceUpdateSheetSelector() {
-      console.log('[Cargo Dispatcher] Принудительное обновление селектора');
-      
-      const selector = document.getElementById('sheetSelector');
-      if (!selector) {
-        console.error('[Cargo Dispatcher] Селектор не найден!');
-        return;
-      }
-      
-      // Убеждаемся что у нас есть данные
-      if (!allSheets || Object.keys(allSheets).length === 0) {
-        const today = new Date().toLocaleDateString('ru-RU');
-        allSheets = { [today]: [] };
-        currentSheet = today;
+        // Сбрасываем все переменные
+        allSheets = {};
+        currentSheet = '';
         tasksData = [];
+        selectedTasks = new Set();
+        
+        // Создаем минимальные данные
+        createInitialData();
+        
+        // Принудительно обновляем интерфейс
+        updateSheetSelector();
+        renderTasks();
+        
+        try {
+          setupEventListeners();
+        } catch (error) {
+          console.error('[Cargo Dispatcher] Ошибка настройки обработчиков в аварийном режиме:', error);
+        }
+        
+        showStatus('✅ Приложение готово к работе', 'success');
+        console.log('[Cargo Dispatcher] Аварийная инициализация завершена');
+        
+      } catch (error) {
+        console.error('[Cargo Dispatcher] Критическая ошибка аварийной инициализации:', error);
+        
+        // Последняя попытка - показать базовое сообщение об ошибке
+        const container = document.getElementById('tasksContainer');
+        if (container) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="icon">⚠️</div>
+              <div class="text">Критическая ошибка приложения.<br>Обновите страницу.</div>
+            </div>
+          `;
+        }
       }
-      
-      const sheets = Object.keys(allSheets).sort().reverse();
-      console.log('[Cargo Dispatcher] Обновляем селектор. Листы:', sheets, 'Текущий:', currentSheet);
-      
-      let options = '<option value="_new">➕ Создать новую дату</option>';
-      
-      sheets.forEach(sheet => {
-        const isSelected = sheet === currentSheet ? 'selected' : '';
-        options += `<option value="${sheet}" ${isSelected}>${sheet}</option>`;
-      });
-      
-      selector.innerHTML = options;
-      console.log('[Cargo Dispatcher] Селектор принудительно обновлен');
     }
   </script>
 </body>
